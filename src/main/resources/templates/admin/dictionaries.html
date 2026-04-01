@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Справочники')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+<div class="container-fluid" x-data="dictionariesApp()">
+
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-book text-primary"></i> Справочники</h2>
+        </div>
+    </div>
+
+    <!-- Вкладки -->
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: tab === 'networkTypes' }" href="#" @click.prevent="tab = 'networkTypes'">Типы сети</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: tab === 'categories' }" href="#" @click.prevent="tab = 'categories'">Категории аварий</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: tab === 'types' }" href="#" @click.prevent="tab = 'types'">Типы аварий</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" :class="{ active: tab === 'roles' }" href="#" @click.prevent="tab = 'roles'">Роли</a>
+        </li>
+    </ul>
+
+    <!-- ==================== ТИПЫ СЕТИ ==================== -->
+    <div x-show="tab === 'networkTypes'">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Типы сети</span>
+                <button class="btn btn-sm btn-primary" @click="openModal('nt', null)">
+                    <i class="bi bi-plus-lg"></i> Создать
+                </button>
+            </div>
+            <div class="card-body">
+                <div x-show="loading" class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                <div x-show="!loading" class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>ID</th><th>Название</th><th>Код</th><th></th></tr></thead>
+                        <tbody>
+                        <template x-for="item in networkTypes" :key="item.id">
+                            <tr>
+                                <td x-text="item.id"></td>
+                                <td x-text="item.title"></td>
+                                <td x-text="item.code"></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" @click="openModal('nt', item)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger" @click="deleteNetworkType(item.id)"><i class="bi bi-trash"></i></button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== КАТЕГОРИИ АВАРИЙ ==================== -->
+    <div x-show="tab === 'categories'">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Категории аварий</span>
+                <button class="btn btn-sm btn-primary" @click="openModal('cat', null)">
+                    <i class="bi bi-plus-lg"></i> Создать
+                </button>
+            </div>
+            <div class="card-body">
+                <div x-show="loading" class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                <div x-show="!loading" class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>ID</th><th>Название</th><th>Описание</th><th>Активна</th><th></th></tr></thead>
+                        <tbody>
+                        <template x-for="item in categories" :key="item.id">
+                            <tr :class="{ 'table-secondary': !item.isActive }">
+                                <td x-text="item.id"></td>
+                                <td x-text="item.categoryName"></td>
+                                <td x-text="item.description || '—'"></td>
+                                <td><span class="badge" :class="item.isActive ? 'bg-success' : 'bg-secondary'" x-text="item.isActive ? 'Да' : 'Нет'"></span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" @click="openModal('cat', item)"><i class="bi bi-pencil"></i></button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== ТИПЫ АВАРИЙ ==================== -->
+    <div x-show="tab === 'types'">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Типы аварий</span>
+                <button class="btn btn-sm btn-primary" @click="openModal('type', null)">
+                    <i class="bi bi-plus-lg"></i> Создать
+                </button>
+            </div>
+            <div class="card-body">
+                <div x-show="loading" class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                <div x-show="!loading" class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>ID</th><th>Код типа</th><th>Активен</th><th></th></tr></thead>
+                        <tbody>
+                        <template x-for="item in types" :key="item.id">
+                            <tr :class="{ 'table-secondary': !item.isActive }">
+                                <td x-text="item.id"></td>
+                                <td x-text="item.typeCode"></td>
+                                <td><span class="badge" :class="item.isActive ? 'bg-success' : 'bg-secondary'" x-text="item.isActive ? 'Да' : 'Нет'"></span></td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" @click="openModal('type', item)"><i class="bi bi-pencil"></i></button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== РОЛИ ==================== -->
+    <div x-show="tab === 'roles'">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Роли</span>
+                <button class="btn btn-sm btn-primary" @click="openModal('role', null)">
+                    <i class="bi bi-plus-lg"></i> Создать
+                </button>
+            </div>
+            <div class="card-body">
+                <div x-show="loading" class="text-center py-4"><div class="spinner-border text-primary"></div></div>
+                <div x-show="!loading" class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>ID</th><th>Название</th><th>Направления</th><th></th></tr></thead>
+                        <tbody>
+                        <template x-for="item in roles" :key="item.id">
+                            <tr>
+                                <td x-text="item.id"></td>
+                                <td x-text="item.title"></td>
+                                <td>
+                                    <template x-for="d in (item.directions || [])" :key="d.id">
+                                        <span class="badge bg-secondary me-1" x-text="d.title"></span>
+                                    </template>
+                                    <template x-if="!(item.directions || []).length">
+                                        <span class="text-muted">—</span>
+                                    </template>
+                                </td>
+                                <td class="text-end">
+                                    <button class="btn btn-sm btn-outline-primary" @click="openModal('role', item)"><i class="bi bi-pencil"></i></button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== УНИВЕРСАЛЬНАЯ МОДАЛКА ==================== -->
+    <div class="modal fade" id="dictModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" x-text="modalTitle"></h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <!-- NetworkType -->
+                    <template x-if="modalType === 'nt'">
+                        <div>
+                            <div class="mb-3">
+                                <label class="form-label">Название</label>
+                                <input class="form-control" x-model="modalForm.title">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Код</label>
+                                <input class="form-control" x-model="modalForm.code">
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- IncidentCategory -->
+                    <template x-if="modalType === 'cat'">
+                        <div>
+                            <div class="mb-3">
+                                <label class="form-label">Название категории</label>
+                                <input class="form-control" x-model="modalForm.categoryName">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Описание</label>
+                                <textarea class="form-control" rows="2" x-model="modalForm.description"></textarea>
+                            </div>
+                            <div class="form-check" x-show="modalEditId">
+                                <input class="form-check-input" type="checkbox" x-model="modalForm.isActive" id="catActive">
+                                <label class="form-check-label" for="catActive">Активна</label>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- IncidentType -->
+                    <template x-if="modalType === 'type'">
+                        <div>
+                            <div class="mb-3">
+                                <label class="form-label">Код типа</label>
+                                <input class="form-control" x-model="modalForm.typeCode">
+                            </div>
+                            <div class="form-check" x-show="modalEditId">
+                                <input class="form-check-input" type="checkbox" x-model="modalForm.isActive" id="typeActive">
+                                <label class="form-check-label" for="typeActive">Активен</label>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Role -->
+                    <template x-if="modalType === 'role'">
+                        <div>
+                            <div class="mb-3">
+                                <label class="form-label">Название роли</label>
+                                <input class="form-control" x-model="modalForm.title" :disabled="!!modalEditId">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Направления</label>
+                                <div class="row">
+                                    <template x-for="d in allDirections" :key="d.id">
+                                        <div class="col-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" :value="d.id" x-model="modalForm.directionIds">
+                                                <label class="form-check-label" x-text="d.title"></label>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" @click="saveModal()" :disabled="saving">
+                        <span x-show="!saving" x-text="modalEditId ? 'Сохранить' : 'Создать'"></span>
+                        <span x-show="saving" class="spinner-border spinner-border-sm"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+function dictionariesApp() {
+    return {
+        tab: 'networkTypes',
+        loading: true,
+        saving: false,
+
+        networkTypes: [],
+        categories: [],
+        types: [],
+        roles: [],
+        allDirections: [],
+
+        modalType: '',
+        modalEditId: null,
+        modalTitle: '',
+        modalForm: {},
+
+        async init() {
+            await this.loadAll();
+        },
+
+        async loadAll() {
+            this.loading = true;
+            const [ntRes, catRes, typeRes, roleRes, dirRes] = await Promise.all([
+                fetch('/api/dictionaries/network-types', { credentials: 'same-origin' }),
+                fetch('/api/dictionaries/incident-categories/all', { credentials: 'same-origin' }),
+                fetch('/api/dictionaries/incident-types/all', { credentials: 'same-origin' }),
+                fetch('/api/dictionaries/roles', { credentials: 'same-origin' }),
+                fetch('/api/dictionaries/directions', { credentials: 'same-origin' })
+            ]);
+            this.networkTypes = ntRes.ok ? await ntRes.json() : [];
+            this.categories = catRes.ok ? await catRes.json() : [];
+            this.types = typeRes.ok ? await typeRes.json() : [];
+            this.roles = roleRes.ok ? await roleRes.json() : [];
+            this.allDirections = dirRes.ok ? await dirRes.json() : [];
+            this.loading = false;
+        },
+
+        openModal(type, item) {
+            this.modalType = type;
+            this.modalEditId = item ? item.id : null;
+            this.saving = false;
+
+            if (type === 'nt') {
+                this.modalTitle = item ? 'Редактировать тип сети' : 'Создать тип сети';
+                this.modalForm = { title: item?.title || '', code: item?.code || '' };
+            } else if (type === 'cat') {
+                this.modalTitle = item ? 'Редактировать категорию' : 'Создать категорию';
+                this.modalForm = { categoryName: item?.categoryName || '', description: item?.description || '', isActive: item?.isActive ?? true };
+            } else if (type === 'type') {
+                this.modalTitle = item ? 'Редактировать тип аварии' : 'Создать тип аварии';
+                this.modalForm = { typeCode: item?.typeCode || '', isActive: item?.isActive ?? true };
+            } else if (type === 'role') {
+                this.modalTitle = item ? 'Редактировать роль' : 'Создать роль';
+                this.modalForm = {
+                    title: item?.title || '',
+                    directionIds: item ? (item.directions || []).map(d => d.id) : []
+                };
+            }
+
+            new bootstrap.Modal(document.getElementById('dictModal')).show();
+        },
+
+        async saveModal() {
+            this.saving = true;
+            try {
+                let url, method, body;
+
+                if (this.modalType === 'nt') {
+                    url = this.modalEditId ? '/api/dictionaries/network-types/' + this.modalEditId : '/api/dictionaries/network-types';
+                    method = this.modalEditId ? 'PUT' : 'POST';
+                    body = { title: this.modalForm.title, code: this.modalForm.code };
+                } else if (this.modalType === 'cat') {
+                    url = this.modalEditId ? '/api/dictionaries/incident-categories/' + this.modalEditId : '/api/dictionaries/incident-categories';
+                    method = this.modalEditId ? 'PUT' : 'POST';
+                    body = { categoryName: this.modalForm.categoryName, description: this.modalForm.description, isActive: this.modalForm.isActive };
+                } else if (this.modalType === 'type') {
+                    url = this.modalEditId ? '/api/dictionaries/incident-types/' + this.modalEditId : '/api/dictionaries/incident-types';
+                    method = this.modalEditId ? 'PUT' : 'POST';
+                    body = { typeCode: this.modalForm.typeCode, isActive: this.modalForm.isActive };
+                } else if (this.modalType === 'role') {
+                    if (this.modalEditId) {
+                        url = '/api/dictionaries/edit-role';
+                        method = 'POST';
+                        body = { id: this.modalEditId, directionIds: this.modalForm.directionIds };
+                    } else {
+                        url = '/api/dictionaries/roles';
+                        method = 'POST';
+                        body = { title: this.modalForm.title, directionIds: this.modalForm.directionIds };
+                    }
+                }
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    showToast(this.modalEditId ? 'Сохранено' : 'Создано', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('dictModal')).hide();
+                    await this.loadAll();
+                } else {
+                    const text = await res.text();
+                    showToast(text || 'Ошибка', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async deleteNetworkType(id) {
+            if (!confirm('Удалить тип сети?')) return;
+            try {
+                const res = await fetch('/api/dictionaries/network-types/' + id, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+                if (res.ok) {
+                    showToast('Удалено', 'success');
+                    await this.loadAll();
+                } else {
+                    showToast(await res.text() || 'Ошибка удаления', 'error');
+                }
+            } catch (e) {
+                showToast('Ошибка: ' + e.message, 'error');
+            }
+        }
+    };
+}
+</script>
+</body>
+</html>

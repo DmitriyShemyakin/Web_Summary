@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Управление ролями')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+<div class="container-fluid" x-data="rolesApp()">
+
+    <div class="row mb-4">
+        <div class="col d-flex justify-content-between align-items-center">
+            <h2>
+                <i class="bi bi-shield-lock text-primary"></i>
+                Управление ролями
+            </h2>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+
+            <div x-show="loading" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+            </div>
+
+            <div x-show="!loading" class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Роль</th>
+                        <th>Направления</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="role in roles" :key="role.id">
+                        <tr>
+                            <td x-text="role.title"></td>
+                            <td>
+                                <template x-if="(role.directions || []).length">
+                                    <div>
+                                        <template x-for="direction in role.directions" :key="direction.id">
+                                            <span class="badge bg-secondary me-1"
+                                                  x-text="direction.title">
+                                            </span>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="!(role.directions || []).length">
+                                    <span class="text-muted">-</span>
+                                </template>
+                            </td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @click="openEditModal(role)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ -->
+    <div class="modal fade" id="editRoleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-pencil"></i> Редактирование роли
+                    </h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label">Название роли</label>
+                        <input class="form-control" x-model="editForm.title" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Направления</label>
+                        <div class="row">
+                            <template x-for="direction in allDirections" :key="direction.id">
+                                <div class="col-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               :value="direction.id"
+                                               x-model="editForm.directionIds">
+                                        <label class="form-check-label"
+                                               x-text="direction.title"></label>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" @click="saveRole()" :disabled="saving">
+                        <span x-show="!saving">Сохранить</span>
+                        <span x-show="saving" class="spinner-border spinner-border-sm"></span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+    function rolesApp() {
+        return {
+            roles: [],
+            allDirections: [],
+            loading: true,
+            saving: false,
+
+            editingRoleId: null,
+            editForm: {
+                title: '',
+                directionIds: []
+            },
+
+            async init() {
+                await Promise.all([
+                    this.fetchRoles(),
+                    this.fetchDirections()
+                ]);
+            },
+
+            async fetchRoles() {
+                const res = await fetch('/api/dictionaries/roles', { credentials: 'same-origin' });
+                this.roles = res.ok ? await res.json() : [];
+                this.loading = false;
+            },
+
+            async fetchDirections() {
+                const res = await fetch('/api/dictionaries/directions', { credentials: 'same-origin' });
+                this.allDirections = res.ok ? await res.json() : [];
+            },
+
+            openEditModal(role) {
+                this.editingRoleId = role.id;
+                this.editForm = {
+                    title: role.title,
+                    directionIds: (role.directions || []).map(d => d.id)
+                };
+
+                new bootstrap.Modal(
+                    document.getElementById('editRoleModal')
+                ).show();
+            },
+
+            async saveRole() {
+                this.saving = true;
+
+                try {
+                    const res = await fetch('/api/dictionaries/edit-role', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            id: this.editingRoleId,
+                            directionIds: this.editForm.directionIds
+                        })
+                    });
+
+                    if (res.ok) {
+                        showToast('Роль обновлена', 'success');
+                        bootstrap.Modal.getInstance(
+                            document.getElementById('editRoleModal')
+                        ).hide();
+                        await this.fetchRoles();
+                    } else {
+                        showToast(await res.text(), 'error');
+                    }
+                } finally {
+                    this.saving = false;
+                }
+            }
+
+        }
+    }
+</script>
+</body>
+</html>

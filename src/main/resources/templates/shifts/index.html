@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Управление сменами')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: navbar}"></div>
+<div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+
+<style>
+    .btn-shift-incidents {
+        color: #fd7e14 !important;
+        background-color: #fff !important;
+        border-color: #fd7e14 !important;
+    }
+    .btn-shift-incidents:hover {
+        color: #fff !important;
+        background-color: #fd7e14 !important;
+        border-color: #fd7e14 !important;
+    }
+</style>
+
+<div class="container-fluid" x-data="shiftApp()">
+    <h2 class="mb-4">
+        <i class="bi bi-clock-history text-primary"></i>
+        Управление сменами
+    </h2>
+
+    <div class="row mb-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header text-black">
+                    <h5 class="mb-0"><i class="bi bi-clock"></i> Текущая смена</h5>
+                </div>
+                <div class="card-body">
+                    <template x-if="!currentShift">
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock fs-1 text-muted d-block mb-3"></i>
+                            <p class="text-muted mb-3">Нет активной смены</p>
+                            <button class="btn btn-success btn-lg"
+                                    th:disabled="${#authorization.expression('hasAnyAuthority(''ADMIN'')')}"
+                                    @click="startShift">
+                                <i class="bi bi-play-circle"></i> Начать смену
+                            </button>
+                        </div>
+                    </template>
+
+                    <template x-if="currentShift">
+                        <div>
+                            <div class="mb-3">
+                                <span class="badge bg-success mb-2">Активна</span>
+                                <h6 class="mb-1">Начало смены</h6>
+                                <p class="text-muted mb-0" x-text="formatDateTime(currentShift.startedAt)"></p>
+                            </div>
+                            <div class="mb-3">
+                                <h6 class="mb-1">Длительность</h6>
+                                <p class="text-muted mb-0" x-text="formatDuration(currentShift.durationMinutes)"></p>
+                            </div>
+                            <div class="mb-3" x-show="currentShift.directionTitle">
+                                <h6 class="mb-1">Направление</h6>
+                                <p class="text-muted mb-0" x-text="currentShift.directionTitle || '-'"></p>
+                            </div>
+                            <hr>
+                            <button class="btn btn-danger btn-lg w-100" @click="endShift">
+                                <i class="bi bi-stop-circle"></i> Завершить смену
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header text-black">
+                    <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Статистика текущей смены</h5>
+                </div>
+                <div class="card-body">
+                    <template x-if="!currentShift">
+                        <div class="text-center text-muted py-5">
+                            <p>Начните смену, чтобы видеть статистику</p>
+                        </div>
+                    </template>
+                    <template x-if="currentShift">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <div class="border rounded p-3 text-center">
+                                    <h3 class="text-primary mb-1" x-text="shiftStats.openIncidents">0</h3>
+                                    <small class="text-muted">Открытых аварий</small>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="border rounded p-3 text-center">
+                                    <h3 class="text-success mb-1" x-text="shiftStats.closedIncidents">0</h3>
+                                    <small class="text-muted">Закрытых аварий</small>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="card shadow-sm">
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2 card-header-brand">
+            <h5 class="mb-0"><i class="bi bi-journal-text"></i> Список смен</h5>
+            <ul class="nav nav-pills mb-0" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link"
+                            :class="listMode === 'mine' ? 'active' : ''"
+                            @click="setListMode('mine')">
+                        <i class="bi bi-person-lines-fill"></i> Мои смены
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button type="button" class="nav-link"
+                            :class="listMode === 'all' ? 'active' : ''"
+                            @click="setListMode('all')">
+                        <i class="bi bi-people"></i> Все смены
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3" x-show="listMode === 'mine'">
+                Смены, в которых вы указаны дежурным. Нажмите «Аварии», чтобы открыть все записи, привязанные к выбранной смене.
+            </p>
+            <p class="text-muted small mb-3" x-show="listMode === 'all'">
+                Все смены в системе
+            </p>
+
+            <div x-show="loadingHistory" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status"></div>
+                <p class="text-muted small mt-2 mb-0">Загрузка…</p>
+            </div>
+
+            <div x-show="!loadingHistory">
+                <template x-if="shiftHistory.length === 0">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        <p class="mb-0" x-text="listMode === 'mine' ? 'У вас пока нет завершённых смен в этой выборке' : 'Нет смен для отображения'"></p>
+                    </div>
+                </template>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped align-middle" x-show="shiftHistory.length > 0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Дежурный</th>
+                            <th>Начало</th>
+                            <th>Окончание</th>
+                            <th>Длительность</th>
+                            <th>Направление</th>
+                            <th>Статус</th>
+                            <th class="text-end">Действия</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <template x-for="shift in shiftHistory" :key="shift.id">
+                            <tr>
+                                <td x-text="shift.id"></td>
+                                <td><small x-text="shift.dutyUserFullName || shift.dutyUserName || '—'"></small></td>
+                                <td x-text="formatDateTime(shift.startedAt)"></td>
+                                <td x-text="formatDateTime(shift.endedAt)"></td>
+                                <td x-text="formatDuration(shift.durationMinutes)"></td>
+                                <td x-text="shift.directionTitle || '—'"></td>
+                                <td>
+                                    <span class="badge"
+                                          :class="shift.status === 'ACTIVE' ? 'bg-success' : 'bg-secondary'"
+                                          x-text="shift.status === 'ACTIVE' ? 'Активна' : 'Завершена'">
+                                    </span>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-outline-primary btn-shift-incidents me-1"
+                                            @click="viewShiftIncidents(shift.id)">
+                                        <i class="bi bi-list-ul"></i> Аварии
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-success"
+                                            @click="downloadShiftXlsx(shift.id)"
+                                            title="Скачать все аварии смены (XLSX)">
+                                        <i class="bi bi-file-earmark-excel"></i> XLSX
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-3" x-show="shiftHistory.length > 0">
+                    <small class="text-muted">
+                        Страница <span x-text="historyPage + 1"></span> из <span x-text="Math.max(1, historyTotalPages)"></span>
+                        <span class="ms-1">(всего <span x-text="historyTotalElements"></span>)</span>
+                    </small>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                :disabled="historyFirst || loadingHistory"
+                                @click="goHistoryPage(historyPage - 1)">
+                            <i class="bi bi-chevron-left"></i> Назад
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                :disabled="historyLast || loadingHistory"
+                                @click="goHistoryPage(historyPage + 1)">
+                            Вперёд <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function shiftApp() {
+        return {
+            currentShift: null,
+            shiftHistory: [],
+            listMode: 'mine',
+            historyPage: 0,
+            historyTotalPages: 0,
+            historyTotalElements: 0,
+            historyFirst: true,
+            historyLast: true,
+            pageSize: 20,
+            shiftStats: {
+                openIncidents: 0,
+                closedIncidents: 0
+            },
+            loadingHistory: false,
+
+            init() {
+                this.fetchCurrentShift();
+                this.fetchShiftHistory();
+                setInterval(() => {
+                    if (this.currentShift) {
+                        this.fetchCurrentShift();
+                    }
+                }, 60000);
+            },
+
+            resetShiftStats() {
+                this.shiftStats = { openIncidents: 0, closedIncidents: 0 };
+            },
+
+            async fetchShiftStats() {
+                if (!this.currentShift || this.currentShift.id == null) {
+                    this.resetShiftStats();
+                    return;
+                }
+                try {
+                    const r = await fetch('/api/shifts/' + this.currentShift.id + '/incidents', { credentials: 'same-origin' });
+                    if (!r.ok) {
+                        this.resetShiftStats();
+                        return;
+                    }
+                    const list = await r.json();
+                    let openIncidents = 0;
+                    let closedIncidents = 0;
+                    for (const inc of list) {
+                        if (inc.status === 'OPEN') openIncidents++;
+                        else closedIncidents++;
+                    }
+                    this.shiftStats = { openIncidents, closedIncidents };
+                } catch (e) {
+                    console.error('Ошибка загрузки статистики смены:', e);
+                    this.resetShiftStats();
+                }
+            },
+
+            setListMode(mode) {
+                if (this.listMode === mode) return;
+                this.listMode = mode;
+                this.historyPage = 0;
+                this.fetchShiftHistory();
+            },
+
+            goHistoryPage(page) {
+                if (page < 0) return;
+                if (this.historyTotalPages > 0 && page >= this.historyTotalPages) return;
+                this.historyPage = page;
+                this.fetchShiftHistory();
+            },
+
+            async fetchCurrentShift() {
+                try {
+                    const response = await fetch('/api/shifts/current', { credentials: 'same-origin' });
+                    if (response.status === 204) {
+                        this.currentShift = null;
+                        this.resetShiftStats();
+                    } else if (response.ok) {
+                        this.currentShift = await response.json();
+                        await this.fetchShiftStats();
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки текущей смены:', error);
+                }
+            },
+
+            async fetchShiftHistory() {
+                this.loadingHistory = true;
+                try {
+                    const path = this.listMode === 'all'
+                        ? '/api/shifts/all'
+                        : '/api/shifts/history';
+                    const url = path + '?page=' + this.historyPage + '&size=' + this.pageSize + '&sort=startedAt,desc';
+                    const response = await fetch(url, { credentials: 'same-origin' });
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.shiftHistory = data.content || [];
+                        this.historyTotalPages = data.totalPages ?? 0;
+                        this.historyTotalElements = data.totalElements ?? 0;
+                        this.historyFirst = data.first ?? true;
+                        this.historyLast = data.last ?? true;
+                        this.historyPage = data.number ?? 0;
+                    } else {
+                        this.shiftHistory = [];
+                        showToast('Не удалось загрузить список смен', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка загрузки истории смен:', error);
+                    this.shiftHistory = [];
+                } finally {
+                    this.loadingHistory = false;
+                }
+            },
+
+            async startShift() {
+                if (!confirm('Начать новую смену?')) return;
+
+                try {
+                    const response = await fetch('/api/shifts/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({})
+                    });
+
+                    if (response.ok) {
+                        this.currentShift = await response.json();
+                        await this.fetchShiftStats();
+                        showToast('Смена начата', 'success');
+                        this.fetchShiftHistory();
+                    } else {
+                        const error = await response.json();
+                        showToast(error.message || 'Ошибка при начале смены', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showToast('Ошибка при начале смены', 'error');
+                }
+            },
+
+            async downloadShiftXlsxByUrl(url) {
+                try {
+                    const r = await fetch(url, { credentials: 'same-origin' });
+                    if (!r.ok) {
+                        showToast('Не удалось скачать XLSX', 'error');
+                        return;
+                    }
+                    const blob = await r.blob();
+                    const cd = r.headers.get('Content-Disposition');
+                    let name = 'shift-incidents.xlsx';
+                    if (cd) {
+                        const m = cd.match(/filename="([^"]+)"/);
+                        if (m) name = m[1];
+                    }
+                    const u = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = u;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(u);
+                } catch (e) {
+                    console.error(e);
+                    showToast('Ошибка скачивания файла', 'error');
+                }
+            },
+
+            async downloadShiftXlsx(shiftId) {
+                await this.downloadShiftXlsxByUrl('/api/shifts/' + shiftId + '/export.xlsx');
+            },
+
+            async endShift() {
+                if (!confirm('Завершить текущую смену? После завершения можно скачать сводку аварий в XLSX.')) return;
+
+                try {
+                    const response = await fetch('/api/shifts/end', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({ generateReport: true })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        showToast(`Смена завершена. Закрыто аварий: ${data.closedIncidentsCount}, открыто: ${data.openIncidentsCount}`, 'success');
+                        this.currentShift = null;
+                        this.resetShiftStats();
+                        this.fetchShiftHistory();
+                        if (data.downloadUrl) {
+                            await this.downloadShiftXlsxByUrl(data.downloadUrl);
+                        }
+                    } else {
+                        const error = await response.json();
+                        showToast(error.message || 'Ошибка при завершении смены', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showToast('Ошибка при завершении смены', 'error');
+                }
+            },
+
+            viewShiftIncidents(shiftId) {
+                window.location.href = `/shifts/${shiftId}/incidents`;
+            },
+
+            formatDateTime(dateStr) {
+                if (!dateStr) return '-';
+                const date = new Date(dateStr);
+                return date.toLocaleString('ru-RU', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
+
+            formatDuration(minutes) {
+                if (!minutes) return '-';
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                return `${hours}ч ${mins}мин`;
+            }
+        }
+    }
+</script>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Управление пользователями')}"></head>
+
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+<div class="container-fluid" x-data="userAdminApp()">
+
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>
+                    <i class="bi bi-people-fill text-primary"></i>
+                    Управление пользователями
+                </h2>
+                <button class="btn btn-primary" @click="openCreateModal()">
+                    <i class="bi bi-plus-circle"></i> Создать пользователя
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users table -->
+    <div class="card">
+        <div class="card-body">
+
+            <div x-show="loading" class="text-center py-5">
+                <div class="spinner-border text-primary"></div>
+            </div>
+
+            <div x-show="!loading" class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>Логин</th>
+                        <th>ФИО</th>
+                        <th>Email</th>
+                        <th>Телефон</th>
+                        <th>Роли</th>
+                        <th>Направления</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <template x-for="user in users" :key="user.id">
+                        <tr>
+                            <td><strong x-text="user.username"></strong></td>
+                            <td x-text="user.fullName"></td>
+                            <td x-text="user.email || '-'"></td>
+                            <td x-text="user.phone || '-'"></td>
+
+                            <td>
+                                <template x-for="role in user.roles" :key="role.id">
+                                    <span class="badge bg-primary me-1" x-text="role.title"></span>
+                                </template>
+                            </td>
+
+                            <td>
+                                <template x-for="direction in (user.directions || [])">
+                                    <span class="badge bg-secondary me-1" x-text="direction.title"></span>
+                                </template>
+                            </td>
+
+                            <td>
+                                <span class="badge"
+                                      :class="user.isActive ? 'bg-success' : 'bg-secondary'"
+                                      x-text="user.isActive ? 'Активен' : 'Неактивен'">
+                                </span>
+                            </td>
+
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @click="editUser(user)">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @click="editPassword(user)">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- CREATE MODAL -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Создание пользователя</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="createUser-username">Логин</label>
+                        <input id="createUser-username" class="form-control" autocomplete="username"
+                               x-model="createForm.username">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="createUser-password">Пароль</label>
+                        <input id="createUser-password" class="form-control" type="password"
+                               autocomplete="new-password" x-model="createForm.password">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="createUser-fullName">ФИО</label>
+                        <input id="createUser-fullName" class="form-control" autocomplete="name"
+                               x-model="createForm.fullName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="createUser-email">Email</label>
+                        <input id="createUser-email" class="form-control" type="email" autocomplete="email"
+                               x-model="createForm.email">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="createUser-phone">Телефон</label>
+                        <input id="createUser-phone" class="form-control" type="tel" autocomplete="tel"
+                               x-model="createForm.phone">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Роли</label>
+
+                        <template x-for="role in availableRoles" :key="role.id">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       :value="role.id"
+                                       x-model="createForm.roleIds"
+                                       :id="'create-role-' + role.id">
+
+                                <label class="form-check-label"
+                                       :for="'create-role-' + role.id"
+                                       x-text="role.title"></label>
+                            </div>
+                        </template>
+                    </div>
+
+
+                    <div class="mb-3">
+                        <label class="form-label">Направления</label>
+
+                        <template x-for="direction in availableDirections" :key="direction.id">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       :value="direction.id"
+                                       x-model="createForm.directionIds"
+                                       :id="'create-dir-' + direction.id">
+
+                                <label class="form-check-label"
+                                       :for="'create-dir-' + direction.id"
+                                       x-text="direction.title"></label>
+                            </div>
+                        </template>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" @click="createUser()">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDIT MODAL -->
+    <div class="modal fade" id="editUserModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Редактирование пользователя</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="editUser-fullName">ФИО</label>
+                        <input id="editUser-fullName" class="form-control" autocomplete="name"
+                               x-model="editForm.fullName">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="editUser-email">Email</label>
+                        <input id="editUser-email" class="form-control" type="email" autocomplete="email"
+                               x-model="editForm.email">
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input id="editUser-active" class="form-check-input" type="checkbox"
+                               x-model="editForm.isActive">
+                        <label class="form-check-label" for="editUser-active">Активен</label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Роли</label>
+
+                        <template x-for="role in availableRoles" :key="role.id">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       :value="role.id"
+                                       x-model="editForm.roleIds"
+                                       :id="'edit-role-' + role.id">
+
+                                <label class="form-check-label"
+                                       :for="'edit-role-' + role.id"
+                                       x-text="role.title"></label>
+                            </div>
+                        </template>
+                    </div>
+
+
+                    <div class="mb-3">
+                        <label class="form-label">Направления</label>
+
+                        <template x-for="direction in availableDirections" :key="direction.id">
+                            <div class="form-check">
+                                <input class="form-check-input"
+                                       type="checkbox"
+                                       :value="direction.id"
+                                       x-model="editForm.directionIds"
+                                       :id="'edit-dir-' + direction.id">
+
+                                <label class="form-check-label"
+                                       :for="'edit-dir-' + direction.id"
+                                       x-text="direction.title"></label>
+                            </div>
+                        </template>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button class="btn btn-primary" @click="updateUser()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHANGE PASSWORD MODAL -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Смена пароля</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-0">
+                        <label class="form-label" for="changePassword-new">Новый пароль</label>
+                        <input id="changePassword-new" type="password" class="form-control"
+                               autocomplete="new-password" x-model="passwordForm.newPassword" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">
+                        Отмена
+                    </button>
+                    <button class="btn btn-primary"
+                            :disabled="!passwordForm.newPassword"
+                            @click="changePassword()">
+                        Сохранить
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+
+<script>
+    function userAdminApp() {
+        return {
+            users: [],
+            availableRoles: [],
+            availableDirections: [],
+            loading: true,
+            saving: false,
+
+            createForm: {
+                username: '',
+                password: '',
+                fullName: '',
+                email: '',
+                phone: '',
+                roleIds: [],
+                directionIds: []
+            },
+
+            editingUserId: null,
+            editForm: {
+                fullName: '',
+                email: '',
+                isActive: true,
+                roleIds: [],
+                directionIds: []
+            },
+
+            editingPasswordUserId: null,
+
+            passwordForm: {
+                newPassword: ''
+            },
+
+            async init() {
+                await this.loadDictionaries();
+                await this.loadUsers();
+            },
+
+            async loadDictionaries() {
+                const opt = { credentials: 'same-origin' };
+                const [rRes, dRes] = await Promise.all([
+                    fetch('/api/dictionaries/roles', opt),
+                    fetch('/api/dictionaries/directions', opt)
+                ]);
+                this.availableRoles = rRes.ok ? await rRes.json() : [];
+                this.availableDirections = dRes.ok ? await dRes.json() : [];
+            },
+
+            async loadUsers() {
+                this.loading = true;
+                try {
+                    const res = await fetch('/api/users', { credentials: 'same-origin' });
+                    this.users = res.ok ? await res.json() : [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            openCreateModal() {
+                new bootstrap.Modal(document.getElementById('createUserModal')).show();
+            },
+
+            editPassword(user) {
+                this.editingPasswordUserId = user.id;
+                this.passwordForm.newPassword = '';
+                new bootstrap.Modal(
+                    document.getElementById('changePasswordModal')
+                ).show();
+            },
+
+            async changePassword() {
+                const res = await fetch(`/api/users/change-password/${this.editingPasswordUserId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ newPassword: this.passwordForm.newPassword })
+                });
+                bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                showToast(res.ok ? 'Пароль изменен' : 'Не удалось сменить пароль', res.ok ? 'success' : 'error');
+                if (res.ok) await this.loadUsers();
+            },
+
+            async createUser() {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(this.createForm)
+                });
+                bootstrap.Modal.getInstance(document.getElementById('createUserModal')).hide();
+                showToast(res.ok ? 'Пользователь создан' : 'Ошибка создания', res.ok ? 'success' : 'error');
+                if (res.ok) await this.loadUsers();
+            },
+
+            editUser(user) {
+                this.editingUserId = user.id;
+                this.editForm = {
+                    fullName: user.fullName,
+                    email: user.email,
+                    isActive: user.isActive,
+                    roleIds: user.roles.map(r => r.id),
+                    directionIds: user.directions ? user.directions.map(d => d.id) : []
+                };
+                new bootstrap.Modal(document.getElementById('editUserModal')).show();
+            },
+
+            async updateUser() {
+                const res = await fetch(`/api/users/update-user/${this.editingUserId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(this.editForm)
+                });
+                bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
+                showToast(res.ok ? 'Сохранено' : 'Ошибка сохранения', res.ok ? 'success' : 'error');
+                if (res.ok) await this.loadUsers();
+            }
+        };
+    }
+</script>
+</body>
+</html>
+

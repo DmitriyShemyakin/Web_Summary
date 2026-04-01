@@ -1,0 +1,86 @@
+package com.example.web_summaryy.config.seed;
+
+import java.util.List;
+
+/**
+ * Категории аварий для начального заполнения БД (без дубликатов).
+ */
+public final class IncidentCategorySeedData {
+
+    private IncidentCategorySeedData() {
+    }
+
+    public static List<String> categoryNames() {
+        return List.of(
+                "Нет управления IP TM от OSS",
+                "Аварийное отключение сети",
+                "Блокировка БС",
+                "Аппаратная неисправность",
+                "Остановка БС",
+                "Блокировка сектора",
+                "Критическая неисправность системы питания",
+                "Вторжение (гранит)",
+                "Второстепенная неисправность системы питания",
+                "Внимание (датчик дыма)",
+                "Авария вентиляторов",
+                "Высокая температура",
+                "Аварийная остановка ДГУ",
+                "Остановка сектора",
+                "Плановое отключение сети",
+                "Вода на полу",
+                "Предупреждение (датчик дыма)",
+                "Тестирование ДГУ",
+                "Внутренняя авария",
+                "Сработал датчик «EMERSON ALARM»",
+                "Сработал датчик «EXTERNAL POWER SUPPLY»",
+                "Сработал датчик «PERSONNEL IS IN RBS ROOM»",
+                "Сработал датчик «INTRUSION (GERCON)»",
+                "Сработал датчик «WATER IN THE FLOOR», PERSONNEL IS IN RBS ROOM, INTRUSION (GERCON), TEMPERATURE LOW, TEMPERATURE HIGH",
+                "Аварийная блокировка БС LTE",
+                "Аварийное отключение промсети",
+                "Периодически сработал датчик «HIGH/LOW TEMPERATURE»",
+                "Периодически Внутренняя авария",
+                "Сработал датчик «WATER ON FLOOR», «INTRUSION (GERCON)»",
+                "Аварийная блокировка БС GSM",
+                "Сработал датчик «PERSONNEL IS IN RBS ROOM», «INTRUSION (GRANIT)»",
+                "Температура воздуха за пределом допустимого диапазона",
+                "Пропадание внешней сети кондиционера",
+                "Сработка датчика «ALARM DGU»",
+                "Сработал датчик «INTRUSION (GRANIT)»",
+                "Сработал датчик «AC FAULT (ELTEK)»",
+                "Сработал датчик «HIGH/LOW TEMPERATURE»",
+                "Ложная сработка датчика «Персонал»",
+                "Периодически Сработал датчик «THERMOBOX (FAN)»",
+                "Сработал датчик «RECTIFIER FAULT (HUAWEI)»",
+                "Периодически Сработал датчик «HIGH/LOW TEMPERATURE THERMOBOX»",
+                "Сработал датчик «RECTIFIER FAULT (HUAWEI)», «EXTERNAL POWER SUPPLY»",
+                "Сработал датчик «INTRUSION (GRANIT)», «THERMOBOX1 (GERCON-1)», «THERMOBOX2 (GERCON-2)»",
+                "Сработал датчик «AC FAULT (FLAT PACK)», «RECTIFIER FAULT (FLAT PACK)»",
+                "Сработка датчика «CONDITIONER POWER FAULT»",
+                "Сработал датчик «RECTIFIER FAULT (EMERSON)»",
+                "Сработал датчик «POWER MAJOR ALARM (PDC600)»",
+                "Периодически Сработал датчик «MAIN FAN FAULT TERMOBOX»",
+                "Сработал датчик «External Power Supply Failure»",
+                "Сработал датчик «FAN CLIMAT SYSTEM ALARM»",
+                "Периодически Сработал датчик «Water detected»",
+                "Сработал датчик «FAN FAULT»",
+                "Сработал датчик «WATER ON FLOOR»",
+                "Сработал датчик «THERMOBOX (FAN 1)»",
+                "Сработал датчик «THERMOBOX (FAN 2)»",
+                "«POWER MAJOR ALARM (HUAWEI RRL)», «POWER MINOR ALARM (HUAWEI RRL)»",
+                "Сработал датчик «INTRUSION (GERCON 1)»",
+                "Сработал датчик «FIRE (SMOKE DETECTOR)», «INTRUSION (GRANIT)»",
+                "Сработал датчик «ALARM (EPOS)»",
+                "Сработка датчика «CLIMAT ALARM»",
+                "Сработал датчик «FIRE (SMOKE DETECTOR)»",
+                "Сработка датчика «Обнаружено вторжение (датчик объема)»",
+                "Аварийные блокировки GSM сектор А",
+                "Сработка датчика «Обнаружено вторжение в DGU»",
+                "Кратковременная аварийная блокировка БС",
+                "Сработка датчика «Пожар (датчик дыма)»",
+                "Плановые работы",
+                "Аварийная блокировка сектора А",
+                "Плановая остановка БС"
+        );
+    }
+}

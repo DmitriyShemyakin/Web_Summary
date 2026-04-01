@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head th:replace="~{fragments/layout :: head('Список аварий')}"></head>
+<body>
+    <div th:replace="~{fragments/layout :: navbar}"></div>
+    <div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        .modal-backdrop-incident {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1050;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 1.5rem 0;
+            overflow-y: auto;
+        }
+        .modal-panel-incident {
+            background: #fff;
+            border-radius: 0.5rem;
+            width: 100%;
+            max-width: 1100px;
+            margin: auto 1rem;
+            box-shadow: 0 0.5rem 1.5rem rgba(0,0,0,0.2);
+            max-height: calc(100vh - 3rem);
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-panel-incident .modal-body-scroll {
+            overflow-y: auto;
+            max-height: calc(100vh - 8rem);
+        }
+        .position-suggest-list {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            background: #fff;
+        }
+        .position-suggest-item {
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .position-suggest-item:hover {
+            background: #fff3e8;
+        }
+        .selected-position-card {
+            border: 1px solid #fd7e14;
+            border-radius: 0.375rem;
+            background: #fffaf6;
+        }
+
+        .incident-table {
+            font-size: 0.8rem;
+            border-collapse: collapse;
+        }
+        .incident-table th,
+        .incident-table td {
+            border: 1px solid #d0d4d9;
+            padding: 0.35rem 0.5rem;
+            vertical-align: middle;
+        }
+        .incident-table thead th {
+            white-space: nowrap;
+            background: #e9ecef;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .incident-table tbody td {
+            white-space: nowrap;
+        }
+        .incident-table .cell-wrap {
+            white-space: normal;
+            min-width: 120px;
+            max-width: 200px;
+        }
+        .incident-table .cell-positions-lines .d-block + .d-block {
+            margin-top: 0.2rem;
+        }
+        .incident-table .cell-text-clip {
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .incident-table tbody tr:hover {
+            background-color: rgba(253, 126, 20, 0.06);
+        }
+        .incident-table tbody tr.row-closed {
+            background-color: #d4edda;
+        }
+        .incident-table tbody tr.row-closed:hover {
+            background-color: #c3e6cb;
+        }
+    </style>
+
+    <div class="container-fluid" x-data="incidentApp()">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-list-ul text-primary"></i>
+                Список аварий
+            </h2>
+            <button type="button" class="btn btn-primary" @click="openCreateModal()">
+                <i class="bi bi-plus-circle"></i> Создать аварию
+            </button>
+        </div>
+
+        <div x-show="showCreateModal" x-cloak class="modal-backdrop-incident" @click.self="closeCreateModal()" @keydown.escape.window="showCreateModal && closeCreateModal()">
+            <div class="modal-panel-incident" @click.stop>
+                <div class="modal-header border-bottom px-4 py-3 d-flex justify-content-between align-items-center flex-wrap gap-2 card-header-brand">
+                    <h4 class="mb-0"><i class="bi bi-plus-square"></i> Новая авария</h4>
+                    <button type="button" class="btn-close" @click="closeCreateModal()" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body-scroll px-4 py-3">
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="row g-3 pb-3 mb-3 border-bottom">
+                                <div class="col-md-6">
+                                    <label class="form-label">Номер NTT/PW</label>
+                                    <input type="text" class="form-control" x-model="createForm.incidentNumber">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Ссылка на заявку</label>
+                                    <input type="url" class="form-control" x-model="createForm.incidentNumberUrl">
+                                </div>
+                            </div>
+
+                            <div class="row g-3 pb-3 mb-3 border-bottom">
+                                <div class="col-12">
+                                    <label class="form-label">Тип оборудования</label>
+                                    <input type="text" class="form-control" x-model="createForm.equipmentType">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Тип аварии <span class="text-danger">*</span></label>
+                                    <div class="position-relative">
+                                        <input type="text" class="form-control" autocomplete="off"
+                                               placeholder="Начните вводить для поиска…"
+                                               x-model="createIncidentTypeQuery"
+                                               @focus="onCreateIncidentTypeFocus()"
+                                               @input="onCreateIncidentTypeInput()"
+                                               @blur="scheduleCloseCreateIncidentType()">
+                                        <div class="position-suggest-list mt-1 shadow-sm position-absolute w-100"
+                                             style="z-index: 20;"
+                                             x-show="incidentTypeOpen && filteredIncidentTypes.length > 0"
+                                             @mousedown.prevent>
+                                            <template x-for="t in filteredIncidentTypes" :key="t.id">
+                                                <div class="position-suggest-item" @click="selectCreateIncidentType(t)">
+                                                    <span x-text="t.typeCode || '—'"></span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Категория аварии <span class="text-danger">*</span></label>
+                                    <div class="position-relative">
+                                        <input type="text" class="form-control" autocomplete="off"
+                                               placeholder="Начните вводить для поиска…"
+                                               x-model="createIncidentCategoryQuery"
+                                               @focus="onCreateIncidentCategoryFocus()"
+                                               @input="onCreateIncidentCategoryInput()"
+                                               @blur="scheduleCloseCreateIncidentCategory()">
+                                        <div class="position-suggest-list mt-1 shadow-sm position-absolute w-100"
+                                             style="z-index: 20;"
+                                             x-show="incidentCategoryOpen && filteredIncidentCategories.length > 0"
+                                             @mousedown.prevent>
+                                            <template x-for="c in filteredIncidentCategories" :key="c.id">
+                                                <div class="position-suggest-item" @click="selectCreateIncidentCategory(c)">
+                                                    <div x-text="c.categoryName || '—'"></div>
+                                                    <div class="small text-muted" x-show="c.description" x-text="c.description"></div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Тип сети <span class="text-danger">*</span></label>
+                                    <select class="form-select" x-model="createForm.networkTypeId" required>
+                                        <option value="">— выберите —</option>
+                                        <template x-for="nt in networkTypes" :key="nt.id">
+                                            <option :value="nt.id" x-text="nt.title"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Категория (уровень позиции) <span class="text-danger">*</span></label>
+                                    <select class="form-select" x-model="createForm.positionLevel" required>
+                                        <option value="">— выберите —</option>
+                                        <option value="0">0</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-3 pb-3 mb-3 border-bottom">
+                                <div class="col-md-6">
+                                    <label class="form-label">Начало <span class="text-danger">*</span></label>
+                                    <input type="datetime-local" class="form-control" x-model="createForm.startedAtLocal" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Кол-во БС</label>
+                                    <input type="text" class="form-control" x-model="createForm.baseStationsCount" @input="touchBsAutoLock()">
+                                </div>
+                            </div>
+
+                            <div class="row g-3 pb-3 mb-3 border-bottom">
+                                <div class="col-md-6">
+                                    <label class="form-label">АКБ</label>
+                                    <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                           inputmode="numeric" autocomplete="off"
+                                           x-model="createForm.akbDuration"
+                                           @blur="createForm.akbDuration = blurNormalizeHHMM(createForm.akbDuration)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">ГУ</label>
+                                    <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                           inputmode="numeric" autocomplete="off"
+                                           x-model="createForm.guDuration"
+                                           @blur="createForm.guDuration = blurNormalizeHHMM(createForm.guDuration)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Время перерыва связи</label>
+                                    <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                           inputmode="numeric" autocomplete="off"
+                                           x-model="createForm.connectionDowntime"
+                                           @blur="createForm.connectionDowntime = blurNormalizeHHMM(createForm.connectionDowntime)">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Общее время простоя БС</label>
+                                    <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                           inputmode="numeric" autocomplete="off"
+                                           x-model="createForm.bsTotalDowntime"
+                                           @blur="createForm.bsTotalDowntime = blurNormalizeHHMM(createForm.bsTotalDowntime)">
+                                </div>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-12">
+                                    <label class="form-label">Уведомление об аварии (Кому)</label>
+                                    <input type="text" class="form-control" x-model="createForm.notificationText">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Описание / примечание</label>
+                                    <textarea class="form-control" rows="2" x-model="createForm.description"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <label class="form-label">Сетевой элемент, услуга <span class="text-danger">*</span></label>
+                            <div class="position-relative mb-2">
+                                <input type="text" class="form-control"
+                                       x-model="positionSearchQuery"
+                                       @input.debounce.350ms="runPositionSearch()">
+                                <div class="position-suggest-list mt-1 shadow-sm" x-show="positionSuggestOpen && (positionSuggestions.length > 0 || positionSearchLoading)">
+                                    <div x-show="positionSearchLoading" class="p-2 text-muted small">Поиск…</div>
+                                    <template x-for="p in positionSuggestions" :key="p.id">
+                                        <div class="position-suggest-item" @click="addPositionById(p.id)">
+                                            <strong x-text="p.positionNameforbs || '—'"></strong>
+                                            <div class="small text-muted" x-text="p.addressStr || ''"></div>
+                                            <div class="small"><span class="badge bg-light text-dark" x-text="p.directionTitle || '—'"></span></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @click="positionSuggestOpen = true; runPositionSearch()">
+                                <i class="bi bi-arrow-repeat"></i> Обновить список
+                            </button>
+
+                            <template x-if="selectedPositions.length === 0">
+                                <div class="alert alert-light border small mb-0">Выберите хотя бы одну позицию из списка.</div>
+                            </template>
+                            <template x-for="sp in selectedPositions" :key="sp.id">
+                                <div class="selected-position-card p-3 mb-3">
+                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                        <div>
+                                            <strong x-text="sp.positionNameforbs || '—'"></strong>
+                                            <div class="small text-muted mt-1" x-text="sp.addressStr || 'Адрес не указан'"></div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" @click="removeSelectedPosition(sp.id)" title="Убрать">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div class="row small mt-2 g-2">
+                                        <div class="col-12"><span class="text-muted">Территориальное направление:</span> <span x-text="sp.directionTitle || '—'"></span></div>
+                                        <div class="col-12"><span class="text-muted">ТЦ:</span> <span x-text="sp.techCentreTitle || '—'"></span></div>
+                                        <div class="col-12"><span class="text-muted">Команда владельца:</span> <span x-text="sp.ownerTeamTitle || '—'"></span></div>
+                                        <div class="col-12" x-show="sp.positionGradlat != null && sp.positionGradlong != null">
+                                            <span class="text-muted">Координаты:</span>
+                                            <span x-text="sp.positionGradlat + ', ' + sp.positionGradlong"></span>
+                                        </div>
+                                        <div class="col-12">
+                                            <span class="text-muted">БС (<span x-text="sp.baseStationsCount"></span>):</span>
+                                            <span x-text="(sp.baseStationLabels && sp.baseStationLabels.length) ? sp.baseStationLabels.join(', ') : '—'"></span>
+                                        </div>
+                                    </div>
+                                    <div x-show="sp._loading" class="small text-primary mt-2"><i class="bi bi-hourglass-split"></i> Загрузка данных…</div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-top px-4 py-3 d-flex justify-content-end gap-2 flex-wrap" style="background: #f8f9fa;">
+                    <button type="button" class="btn btn-outline-secondary" @click="closeCreateModal()">Отмена</button>
+                    <button type="button" class="btn btn-primary"
+                            :disabled="createSubmitting || selectedPositions.length === 0"
+                            @click="submitCreateIncident()">
+                        <span x-show="!createSubmitting"><i class="bi bi-check-lg"></i> Создать</span>
+                        <span x-show="createSubmitting"><span class="spinner-border spinner-border-sm me-1"></span>Сохранение…</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <div class="card border-primary" style="background-color: rgba(253,126,20,0.08);">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0 text-primary" x-text="stats.open">0</h3>
+                                    <small class="text-muted">Открытых аварий</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-success bg-opacity-10 border-success">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0 text-success" x-text="stats.closed">0</h3>
+                                    <small class="text-muted">Закрытых аварий</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card" style="background-color: rgba(108,117,125,0.08); border-color: #6c757d;">
+                                <div class="card-body text-center">
+                                    <h3 class="mb-0" x-text="stats.total">0</h3>
+                                    <small class="text-muted">Всего аварий</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="loading" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+        </div>
+
+        <div x-show="!loading" class="card">
+            <div class="table-responsive">
+                <table class="table incident-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Номер NTT/PW</th>
+                            <th>Территориальное направление</th>
+                            <th>ТЦ</th>
+                            <th>Категория</th>
+                            <th>Тип сети</th>
+                            <th>Сетевой элемент, услуга</th>
+                            <th>Кол-во БС</th>
+                            <th>Тип оборудования</th>
+                            <th>Тип аварии</th>
+                            <th>Категория аварии</th>
+                            <th>Начало</th>
+                            <th>Окончание</th>
+                            <th>АКБ</th>
+                            <th>ГУ</th>
+                            <th>Длительность аварии</th>
+                            <th>Время перерыва связи</th>
+                            <th>Общее время простоя БС</th>
+                            <th>Уведомление об аварии (Кому)</th>
+                            <th>Описание/ примечание</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-if="incidents.length === 0">
+                            <tr>
+                                <td colspan="21" class="text-center text-muted py-4" style="white-space:normal;">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    Нет аварий
+                                </td>
+                            </tr>
+                        </template>
+                        <template x-for="incident in incidents" :key="incident.id">
+                            <tr :class="incident.status === 'OPEN' ? '' : 'row-closed'">
+                                <td class="text-center" x-text="incident.id"></td>
+                                <td>
+                                    <a x-show="incident.incidentNumberUrl"
+                                       :href="incident.incidentNumberUrl"
+                                       target="_blank"
+                                       class="text-decoration-none">
+                                        <span x-text="incident.incidentNumber || '—'"></span>
+                                        <i class="bi bi-box-arrow-up-right small"></i>
+                                    </a>
+                                    <span x-show="!incident.incidentNumberUrl" x-text="incident.incidentNumber || '—'"></span>
+                                </td>
+                                <td x-text="incident.directionNames || '—'"></td>
+                                <td x-text="incident.techCentreNames || '—'"></td>
+                                <td class="text-center" x-text="incident.positionLevel != null ? incident.positionLevel : '—'"></td>
+                                <td x-text="incident.networkTypeName || '—'"></td>
+                                <td class="cell-wrap cell-positions-lines">
+                                    <template x-if="!incident.positionNames || incident.positionNames.length === 0"><span>—</span></template>
+                                    <template x-for="(pn, idx) in incident.positionNames" :key="idx">
+                                        <span class="d-block" x-text="pn"></span>
+                                    </template>
+                                </td>
+                                <td class="text-center" x-text="incident.baseStationsCount || '—'"></td>
+                                <td x-text="incident.equipmentType || '—'"></td>
+                                <td x-text="incident.incidentType?.typeCode || '—'"></td>
+                                <td class="cell-wrap"><span x-text="incident.incidentCategory?.categoryName || '—'"></span></td>
+                                <td x-text="formatDateTime(incident.startedAt)"></td>
+                                <td x-text="formatDateTime(incident.endedAt)"></td>
+                                <td class="text-center" x-text="incident.akbDuration || '—'"></td>
+                                <td class="text-center" x-text="incident.guDuration || '—'"></td>
+                                <td class="text-center">
+                                    <template x-if="incident.status === 'OPEN'">
+                                        <span class="text-warning fw-bold">НВ <small class="text-muted fw-normal" x-text="'(' + calcLiveDuration(incident.startedAt) + ')'"></small></span>
+                                    </template>
+                                    <template x-if="incident.status !== 'OPEN'">
+                                        <span x-text="calcDuration(incident.startedAt, incident.endedAt)"></span>
+                                    </template>
+                                </td>
+                                <td class="text-center" x-text="incident.connectionDowntime || '—'"></td>
+                                <td class="text-center" x-text="incident.bsTotalDowntime || '—'"></td>
+                                <td><span class="cell-text-clip" x-text="incident.notificationText || '—'" :title="incident.notificationText || ''"></span></td>
+                                <td><span class="cell-text-clip" x-text="incident.description || '—'" :title="incident.description || ''"></span></td>
+                                <td class="text-center" style="white-space:nowrap;">
+                                    <button class="btn btn-sm btn-outline-secondary btn-icon me-1"
+                                            @click="editIncident(incident.id)"
+                                            title="Редактировать">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success btn-icon"
+                                            @click="goCloseIncident(incident.id)"
+                                            title="Закрыть аварию"
+                                            x-show="incident.status === 'OPEN'">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function incidentApp() {
+            const emptyCreateForm = () => ({
+                incidentNumber: '',
+                incidentNumberUrl: '',
+                equipmentType: '',
+                incidentTypeId: '',
+                incidentCategoryId: '',
+                networkTypeId: '',
+                positionLevel: '',
+                startedAtLocal: '',
+                baseStationsCount: '',
+                akbDuration: '00:00',
+                guDuration: '00:00',
+                connectionDowntime: '00:00',
+                bsTotalDowntime: '00:00',
+                notificationText: '',
+                description: ''
+            });
+
+            return {
+                incidents: [],
+                loading: false,
+                showCreateModal: false,
+                createSubmitting: false,
+                createForm: emptyCreateForm(),
+                incidentTypes: [],
+                incidentCategories: [],
+                networkTypes: [],
+                positionSearchQuery: '',
+                positionSuggestions: [],
+                positionSuggestOpen: false,
+                positionSearchLoading: false,
+                createIncidentTypeQuery: '',
+                createIncidentCategoryQuery: '',
+                incidentTypeOpen: false,
+                incidentCategoryOpen: false,
+                filteredIncidentTypes: [],
+                filteredIncidentCategories: [],
+                selectedPositions: [],
+                autoLocks: { bs: false },
+                stats: { open: 0, closed: 0, total: 0 },
+                _tickKey: 0,
+
+                get defaultBsCount() {
+                    if (!this.selectedPositions.length) return 0;
+                    return this.selectedPositions.reduce((s, p) => s + (p.baseStationsCount || 0), 0);
+                },
+
+                init() {
+                    this.fetchIncidents();
+                    setInterval(() => { this._tickKey++; }, 60000);
+                },
+
+                async fetchIncidents() {
+                    this.loading = true;
+                    try {
+                        const response = await fetch('/api/incidents', { credentials: 'same-origin' });
+                        if (response.ok) {
+                            this.incidents = await response.json();
+                            this.updateStats();
+                        }
+                    } catch (error) {
+                        console.error('Ошибка загрузки аварий:', error);
+                        showToast('Ошибка загрузки данных', 'error');
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                updateStats() {
+                    this.stats.total = this.incidents.length;
+                    this.stats.open = this.incidents.filter(i => i.status === 'OPEN').length;
+                    this.stats.closed = this.incidents.filter(i => i.status === 'CLOSED').length;
+                },
+
+                async openCreateModal() {
+                    this.createForm = emptyCreateForm();
+                    this.autoLocks = { bs: false };
+                    const now = new Date();
+                    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                    this.createForm.startedAtLocal = now.toISOString().slice(0, 16);
+                    this.selectedPositions = [];
+                    this.positionSearchQuery = '';
+                    this.positionSuggestions = [];
+                    this.positionSuggestOpen = false;
+                    this.createIncidentTypeQuery = '';
+                    this.createIncidentCategoryQuery = '';
+                    this.createForm.incidentTypeId = '';
+                    this.createForm.incidentCategoryId = '';
+                    this.incidentTypeOpen = false;
+                    this.incidentCategoryOpen = false;
+                    this.filteredIncidentTypes = [];
+                    this.filteredIncidentCategories = [];
+                    this.showCreateModal = true;
+                    await this.loadDictionariesForCreate();
+                },
+
+                scheduleCloseCreateIncidentType() {
+                    setTimeout(() => { this.incidentTypeOpen = false; }, 200);
+                },
+                scheduleCloseCreateIncidentCategory() {
+                    setTimeout(() => { this.incidentCategoryOpen = false; }, 200);
+                },
+                filterCreateIncidentType() {
+                    const q = (this.createIncidentTypeQuery || '').trim().toLowerCase();
+                    const all = this.incidentTypes || [];
+                    this.filteredIncidentTypes = !q
+                        ? all.slice()
+                        : all.filter(t => (t.typeCode || '').toLowerCase().includes(q));
+                },
+                filterCreateIncidentCategory() {
+                    const q = (this.createIncidentCategoryQuery || '').trim().toLowerCase();
+                    const all = this.incidentCategories || [];
+                    this.filteredIncidentCategories = !q
+                        ? all.slice()
+                        : all.filter(c => {
+                            const name = (c.categoryName || '').toLowerCase();
+                            const desc = (c.description || '').toLowerCase();
+                            return name.includes(q) || desc.includes(q);
+                        });
+                },
+                onCreateIncidentTypeFocus() {
+                    this.filterCreateIncidentType();
+                    this.incidentTypeOpen = true;
+                },
+                onCreateIncidentTypeInput() {
+                    const tid = this.createForm.incidentTypeId;
+                    if (tid) {
+                        const t = this.incidentTypes.find(x => String(x.id) === String(tid));
+                        const label = t ? String(t.typeCode || '').trim() : '';
+                        if (String(this.createIncidentTypeQuery || '').trim() !== label) {
+                            this.createForm.incidentTypeId = '';
+                        }
+                    }
+                    this.filterCreateIncidentType();
+                    this.incidentTypeOpen = true;
+                },
+                onCreateIncidentCategoryFocus() {
+                    this.filterCreateIncidentCategory();
+                    this.incidentCategoryOpen = true;
+                },
+                onCreateIncidentCategoryInput() {
+                    const cid = this.createForm.incidentCategoryId;
+                    if (cid) {
+                        const c = this.incidentCategories.find(x => String(x.id) === String(cid));
+                        const label = c ? String(c.categoryName || '').trim() : '';
+                        if (String(this.createIncidentCategoryQuery || '').trim() !== label) {
+                            this.createForm.incidentCategoryId = '';
+                        }
+                    }
+                    this.filterCreateIncidentCategory();
+                    this.incidentCategoryOpen = true;
+                },
+                selectCreateIncidentType(t) {
+                    this.createForm.incidentTypeId = String(t.id);
+                    this.createIncidentTypeQuery = t.typeCode || '';
+                    this.incidentTypeOpen = false;
+                },
+                selectCreateIncidentCategory(c) {
+                    this.createForm.incidentCategoryId = String(c.id);
+                    this.createIncidentCategoryQuery = c.categoryName || '';
+                    this.incidentCategoryOpen = false;
+                },
+
+                touchBsAutoLock() {
+                    this.autoLocks.bs = !!(this.createForm.baseStationsCount && String(this.createForm.baseStationsCount).trim());
+                },
+
+                syncDerivedFromPositions() {
+                    const loaded = this.selectedPositions.filter(p => !p._loading);
+                    if (!loaded.length) {
+                        if (!this.autoLocks.bs) this.createForm.baseStationsCount = '';
+                        return;
+                    }
+                    if (!this.autoLocks.bs) {
+                        const sum = loaded.reduce((s, p) => s + (p.baseStationsCount || 0), 0);
+                        this.createForm.baseStationsCount = String(sum > 0 ? sum : loaded.length);
+                    }
+                },
+
+                closeCreateModal() {
+                    this.showCreateModal = false;
+                },
+
+                async loadDictionariesForCreate() {
+                    try {
+                        const [tRes, cRes, ntRes] = await Promise.all([
+                            fetch('/api/dictionaries/incident-types', { credentials: 'same-origin' }),
+                            fetch('/api/dictionaries/incident-categories', { credentials: 'same-origin' }),
+                            fetch('/api/dictionaries/network-types', { credentials: 'same-origin' })
+                        ]);
+                        if (tRes.ok) this.incidentTypes = await tRes.json();
+                        if (cRes.ok) this.incidentCategories = await cRes.json();
+                        if (ntRes.ok) this.networkTypes = await ntRes.json();
+                        this.filterCreateIncidentType();
+                        this.filterCreateIncidentCategory();
+                    } catch (e) {
+                        console.error(e);
+                        showToast('Не удалось загрузить справочники', 'error');
+                    }
+                },
+
+                async runPositionSearch() {
+                    this.positionSearchLoading = true;
+                    this.positionSuggestOpen = true;
+                    try {
+                        const q = (this.positionSearchQuery || '').trim();
+                        const url = '/api/dictionaries/positions/search?q=' + encodeURIComponent(q) + '&limit=40';
+                        const res = await fetch(url, { credentials: 'same-origin' });
+                        if (res.ok) {
+                            this.positionSuggestions = await res.json();
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    } finally {
+                        this.positionSearchLoading = false;
+                    }
+                },
+
+                async addPositionById(id) {
+                    if (this.selectedPositions.some(p => p.id === id)) {
+                        showToast('Позиция уже добавлена', 'warning');
+                        this.positionSuggestOpen = false;
+                        return;
+                    }
+                    const placeholder = { id, _loading: true, positionNameforbs: '…', baseStationsCount: 0, baseStationLabels: [] };
+                    this.selectedPositions.push(placeholder);
+                    this.positionSuggestOpen = false;
+                    try {
+                        const res = await fetch('/api/dictionaries/positions/' + id + '/detail', { credentials: 'same-origin' });
+                        if (!res.ok) {
+                            this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                            showToast('Не удалось загрузить позицию', 'error');
+                            return;
+                        }
+                        const detail = await res.json();
+                        detail._loading = false;
+                        const idx = this.selectedPositions.findIndex(p => p.id === id);
+                        if (idx >= 0) this.selectedPositions[idx] = detail;
+                        this.syncDerivedFromPositions();
+                    } catch (e) {
+                        console.error(e);
+                        this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                        showToast('Ошибка сети', 'error');
+                    }
+                },
+
+                removeSelectedPosition(id) {
+                    this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                    this.syncDerivedFromPositions();
+                },
+
+                normalizeLocalDateTime(localStr) {
+                    if (!localStr) return null;
+                    const s = localStr.trim();
+                    if (s.length === 16) return s + ':00';
+                    return s;
+                },
+
+                blurNormalizeHHMM(s) {
+                    let t = (s || '').trim();
+                    if (!t) return '';
+                    if (/^\d{1,3}:[0-5]\d$/.test(t)) return t;
+                    if (/^\d{1,3}$/.test(t)) return t + ':00';
+                    const d = t.replace(/\D/g, '');
+                    if (!d) return '';
+                    if (d.length <= 2) return d;
+                    const mm = Math.min(59, parseInt(d.slice(-2), 10));
+                    const hh = d.slice(0, -2) || '0';
+                    return hh + ':' + String(mm).padStart(2, '0');
+                },
+
+                hhmmFieldError(s) {
+                    const t = (s || '').trim();
+                    if (!t) return null;
+                    return /^\d{1,3}:[0-5]\d$/.test(t)
+                        ? null
+                        : 'укажите в формате ЧЧ:ММ (напр. 02:30)';
+                },
+
+                async submitCreateIncident() {
+                    if (!this.createForm.incidentTypeId || !this.createForm.incidentCategoryId) {
+                        showToast('Выберите «Тип аварии» и «Категорию аварии»', 'warning');
+                        return;
+                    }
+                    if (!this.createForm.networkTypeId) {
+                        showToast('Выберите «Тип сети»', 'warning');
+                        return;
+                    }
+                    if (this.createForm.positionLevel === '' || this.createForm.positionLevel === null || this.createForm.positionLevel === undefined) {
+                        showToast('Укажите «Категорию» (уровень 0–3)', 'warning');
+                        return;
+                    }
+                    if (!this.createForm.startedAtLocal) {
+                        showToast('Укажите «Начало» (дату и время)', 'warning');
+                        return;
+                    }
+                    const stillLoading = this.selectedPositions.some(p => p._loading);
+                    if (stillLoading) {
+                        showToast('Дождитесь загрузки данных по позициям', 'warning');
+                        return;
+                    }
+                    if (this.selectedPositions.length === 0) {
+                        showToast('Выберите «Сетевой элемент, услуга» — хотя бы одну позицию', 'warning');
+                        return;
+                    }
+
+                    const startedAt = this.normalizeLocalDateTime(this.createForm.startedAtLocal);
+                    if (!startedAt) {
+                        showToast('Некорректная дата начала', 'error');
+                        return;
+                    }
+
+                    const akbErr = this.hhmmFieldError(this.createForm.akbDuration);
+                    if (akbErr) {
+                        showToast('АКБ: ' + akbErr, 'warning');
+                        return;
+                    }
+                    const guErr = this.hhmmFieldError(this.createForm.guDuration);
+                    if (guErr) {
+                        showToast('ГУ: ' + guErr, 'warning');
+                        return;
+                    }
+                    const connErr = this.hhmmFieldError(this.createForm.connectionDowntime);
+                    if (connErr) {
+                        showToast('Время перерыва связи: ' + connErr, 'warning');
+                        return;
+                    }
+                    const bsTotErr = this.hhmmFieldError(this.createForm.bsTotalDowntime);
+                    if (bsTotErr) {
+                        showToast('Общее время простоя БС: ' + bsTotErr, 'warning');
+                        return;
+                    }
+
+                    let bs = (this.createForm.baseStationsCount || '').trim();
+                    if (!bs) {
+                        bs = String(this.defaultBsCount || this.selectedPositions.length);
+                    }
+
+                    const pl = this.createForm.positionLevel;
+                    const positionLevel = (pl === '' || pl === null || pl === undefined) ? null : Number(pl);
+
+                    const body = {
+                        incidentNumber: this.createForm.incidentNumber?.trim() || null,
+                        incidentNumberUrl: this.createForm.incidentNumberUrl?.trim() || null,
+                        equipmentType: (this.createForm.equipmentType || '').trim(),
+                        incidentTypeId: Number(this.createForm.incidentTypeId),
+                        incidentCategoryId: Number(this.createForm.incidentCategoryId),
+                        networkTypeId: Number(this.createForm.networkTypeId),
+                        positionLevel,
+                        positionIds: this.selectedPositions.map(p => p.id),
+                        baseStationsCount: bs,
+                        startedAt: startedAt,
+                        akbDuration: this.createForm.akbDuration?.trim() || null,
+                        guDuration: this.createForm.guDuration?.trim() || null,
+                        connectionDowntime: this.createForm.connectionDowntime?.trim() || null,
+                        bsTotalDowntime: this.createForm.bsTotalDowntime?.trim() || null,
+                        notificationText: this.createForm.notificationText?.trim() || null,
+                        description: this.createForm.description?.trim() || null
+                    };
+
+                    this.createSubmitting = true;
+                    try {
+                        const response = await fetch('/api/incidents', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify(body)
+                        });
+                        if (response.ok) {
+                            showToast('Авария создана', 'success');
+                            this.closeCreateModal();
+                            this.fetchIncidents();
+                        } else {
+                            let msg = 'Не удалось создать аварию';
+                            try {
+                                const err = await response.json();
+                                if (err.message) msg = err.message;
+                            } catch (_) {}
+                            if (response.status === 401) msg = 'Требуется вход';
+                            if (response.status === 403) msg = 'Нет доступа';
+                            showToast(msg, 'error');
+                        }
+                    } catch (error) {
+                        console.error(error);
+                        showToast('Ошибка сети', 'error');
+                    } finally {
+                        this.createSubmitting = false;
+                    }
+                },
+
+                editIncident(id) {
+                    window.location.href = '/incidents/' + id + '/edit';
+                },
+
+                goCloseIncident(id) {
+                    window.location.href = '/incidents/' + id + '/edit?close=1';
+                },
+
+                formatDateTime(dateStr) {
+                    if (!dateStr) return '—';
+                    const date = new Date(dateStr);
+                    if (isNaN(date.getTime())) return '—';
+                    return date.toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                },
+
+                calcDuration(startVal, endVal) {
+                    return IncidentTime.msToHHMM(IncidentTime.diffMs(startVal, endVal));
+                },
+
+                calcLiveDuration(startVal) {
+                    void this._tickKey;
+                    return IncidentTime.msToHHMM(IncidentTime.diffMs(startVal, null));
+                }
+            };
+        }
+    </script>
+
+    <footer th:replace="~{fragments/layout :: footer}"></footer>
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
+
+

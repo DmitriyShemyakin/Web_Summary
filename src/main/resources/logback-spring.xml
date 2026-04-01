@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Показываем внутренний статус Logback в консоли (помогает убедиться, что конфиг подхватился) -->
+  <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
+
+  <!-- Общие свойства -->
+  <property name="LOG_PATTERN"
+            value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"/>
+  <property name="LOG_DIR" value="logs"/>
+  <property name="LOG_FILE" value="${LOG_DIR}/web_summaryy.log"/>
+
+  <!-- Консоль (удобно оставить хотя бы на этапе проверки) -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Ротация по дате + размеру -->
+  <appender name="ROLLING" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_FILE}</file>
+    <encoder>
+      <pattern>${LOG_PATTERN}</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_DIR}/web_summaryy.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>5MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>50MB</totalSizeCap>
+    </rollingPolicy>
+  </appender>
+
+  <!-- Подавляем «шум» библиотек -->
+  <logger name="org.springframework" level="WARN"/>
+  <logger name="org.apache" level="WARN"/>
+  <logger name="org.hibernate" level="WARN"/>
+  <logger name="org.springframework.web.client.RestTemplate" level="ERROR"/>
+
+  <!-- ВАЖНО: пакет приложения с подчёркиванием (ровно как в коде!) -->
+  <logger name="com.example.web_summaryy" level="INFO" additivity="false">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="ROLLING"/>
+  </logger>
+
+  <!-- Корневой логгер: только WARN/ERROR от всего остального -->
+  <root level="WARN">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="ROLLING"/>
+  </root>
+</configuration>

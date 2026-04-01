@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Редактирование аварии')}"></head>
+<body>
+<div th:replace="~{fragments/layout :: navbar}"></div>
+<div th:replace="~{fragments/layout :: toastContainer}"></div>
+
+<style>
+    [x-cloak] { display: none !important; }
+    .position-suggest-list {
+        max-height: 220px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background: #fff;
+    }
+    .position-suggest-item {
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .position-suggest-item:hover { background: #fff3e8; }
+    .selected-position-card {
+        border: 1px solid #fd7e14;
+        border-radius: 0.375rem;
+        background: #fffaf6;
+    }
+</style>
+
+<div class="container-fluid" th:x-data="|incidentEditApp(${incidentId})|">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+        <a href="/incidents" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> К списку
+        </a>
+        <h2 class="mb-0">Редактирование аварии <span class="text-muted" x-text="'#' + incidentId"></span></h2>
+    </div>
+
+    <div x-show="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="text-muted mt-2 mb-0">Загрузка…</p>
+    </div>
+
+    <div x-show="!loading && loadError" x-cloak class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i> <span x-text="loadError"></span>
+    </div>
+
+    <div x-show="!loading && loaded" x-cloak class="card shadow-sm">
+        <div class="card-header border-bottom py-3 card-header-brand d-flex flex-wrap align-items-center gap-2">
+            <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Данные аварии</h5>
+            <span x-show="isClosed" class="badge bg-secondary">Закрыта</span>
+        </div>
+        <div class="card-body">
+            <div x-show="isClosed" class="alert alert-light border py-2 mb-4 small" role="status">
+                Авария закрыта. Данные и время окончания можно изменить и сохранить.
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="row g-3 pb-3 mb-3 border-bottom">
+                        <div class="col-md-6">
+                            <label class="form-label">Номер NTT/PW</label>
+                            <input type="text" class="form-control" x-model="editForm.incidentNumber">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ссылка на заявку</label>
+                            <input type="url" class="form-control" x-model="editForm.incidentNumberUrl">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 pb-3 mb-3 border-bottom">
+                        <div class="col-12">
+                            <label class="form-label">Тип оборудования</label>
+                            <input type="text" class="form-control" x-model="editForm.equipmentType">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Тип аварии <span class="text-danger">*</span></label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" autocomplete="off"
+                                       placeholder="Начните вводить для поиска…"
+                                       x-model="editIncidentTypeQuery"
+                                       @focus="onEditIncidentTypeFocus()"
+                                       @input="onEditIncidentTypeInput()"
+                                       @blur="scheduleCloseEditIncidentType()">
+                                <div class="position-suggest-list mt-1 shadow-sm position-absolute w-100"
+                                     style="z-index: 20;"
+                                     x-show="editIncidentTypeOpen && filteredEditIncidentTypes.length > 0"
+                                     @mousedown.prevent>
+                                    <template x-for="t in filteredEditIncidentTypes" :key="t.id">
+                                        <div class="position-suggest-item" @click="selectEditIncidentType(t)">
+                                            <span x-text="t.typeCode || '—'"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Категория аварии <span class="text-danger">*</span></label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" autocomplete="off"
+                                       placeholder="Начните вводить для поиска…"
+                                       x-model="editIncidentCategoryQuery"
+                                       @focus="onEditIncidentCategoryFocus()"
+                                       @input="onEditIncidentCategoryInput()"
+                                       @blur="scheduleCloseEditIncidentCategory()">
+                                <div class="position-suggest-list mt-1 shadow-sm position-absolute w-100"
+                                     style="z-index: 20;"
+                                     x-show="editIncidentCategoryOpen && filteredEditIncidentCategories.length > 0"
+                                     @mousedown.prevent>
+                                    <template x-for="c in filteredEditIncidentCategories" :key="c.id">
+                                        <div class="position-suggest-item" @click="selectEditIncidentCategory(c)">
+                                            <div x-text="c.categoryName || '—'"></div>
+                                            <div class="small text-muted" x-show="c.description" x-text="c.description"></div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Тип сети <span class="text-danger">*</span></label>
+                            <select class="form-select" x-model="editForm.networkTypeId" required>
+                                <option value="">— выберите —</option>
+                                <template x-for="nt in networkTypes" :key="nt.id">
+                                    <option :value="nt.id" x-text="nt.title"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Категория (уровень позиции) <span class="text-danger">*</span></label>
+                            <select class="form-select" x-model="editForm.positionLevel" required>
+                                <option value="">— выберите —</option>
+                                <option value="0">0</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 pb-3 mb-3 border-bottom">
+                        <div class="col-md-6">
+                            <label class="form-label">Начало <span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" x-model="editForm.startedAtLocal" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Окончание</label>
+                            <input type="datetime-local" class="form-control" x-model="editForm.endedAtLocal">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Кол-во БС</label>
+                            <input type="text" class="form-control" x-model="editForm.baseStationsCount" @input="touchBsAutoLock()">
+                        </div>
+                    </div>
+
+                    <div class="row g-3 pb-3 mb-3 border-bottom">
+                        <div class="col-md-6">
+                            <label class="form-label">АКБ</label>
+                            <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                   inputmode="numeric" autocomplete="off"
+                                   x-model="editForm.akbDuration"
+                                   @blur="editForm.akbDuration = blurNormalizeHHMM(editForm.akbDuration)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">ГУ</label>
+                            <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                   inputmode="numeric" autocomplete="off"
+                                   x-model="editForm.guDuration"
+                                   @blur="editForm.guDuration = blurNormalizeHHMM(editForm.guDuration)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Время перерыва связи</label>
+                            <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                   inputmode="numeric" autocomplete="off"
+                                   x-model="editForm.connectionDowntime"
+                                   @blur="editForm.connectionDowntime = blurNormalizeHHMM(editForm.connectionDowntime)">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Общее время простоя БС</label>
+                            <input type="text" class="form-control font-monospace" maxlength="7" placeholder="ЧЧ:ММ"
+                                   inputmode="numeric" autocomplete="off"
+                                   x-model="editForm.bsTotalDowntime"
+                                   @blur="editForm.bsTotalDowntime = blurNormalizeHHMM(editForm.bsTotalDowntime)">
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label">Уведомление об аварии (Кому)</label>
+                            <input type="text" class="form-control" x-model="editForm.notificationText">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Описание / примечание</label>
+                            <textarea class="form-control" rows="2" x-model="editForm.description"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <label class="form-label">Сетевой элемент, услуга <span class="text-danger">*</span></label>
+                    <div class="position-relative mb-2">
+                        <input type="text" class="form-control"
+                               x-model="positionSearchQuery"
+                               @input.debounce.350ms="runPositionSearch()">
+                        <div class="position-suggest-list mt-1 shadow-sm" x-show="positionSuggestOpen && (positionSuggestions.length > 0 || positionSearchLoading)">
+                            <div x-show="positionSearchLoading" class="p-2 text-muted small">Поиск…</div>
+                            <template x-for="p in positionSuggestions" :key="p.id">
+                                <div class="position-suggest-item" @click="addPositionById(p.id)">
+                                    <strong x-text="p.positionNameforbs || '—'"></strong>
+                                    <div class="small text-muted" x-text="p.addressStr || ''"></div>
+                                    <div class="small"><span class="badge bg-light text-dark" x-text="p.directionTitle || '—'"></span></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mb-3" @click="positionSuggestOpen = true; runPositionSearch()">
+                        <i class="bi bi-arrow-repeat"></i> Обновить список
+                    </button>
+
+                    <template x-if="selectedPositions.length === 0">
+                        <div class="alert alert-light border small mb-0">Добавьте хотя бы одну позицию.</div>
+                    </template>
+                    <template x-for="sp in selectedPositions" :key="sp.id">
+                        <div class="selected-position-card p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div>
+                                    <strong x-text="sp.positionNameforbs || '—'"></strong>
+                                    <div class="small text-muted mt-1" x-text="sp.addressStr || 'Адрес не указан'"></div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-danger" @click="removeSelectedPosition(sp.id)" title="Убрать">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                            <div class="row small mt-2 g-2">
+                                <div class="col-12"><span class="text-muted">Территориальное направление:</span> <span x-text="sp.directionTitle || '—'"></span></div>
+                                <div class="col-12"><span class="text-muted">ТЦ:</span> <span x-text="sp.techCentreTitle || '—'"></span></div>
+                                <div class="col-12"><span class="text-muted">Команда владельца:</span> <span x-text="sp.ownerTeamTitle || '—'"></span></div>
+                            </div>
+                            <div x-show="sp._loading" class="small text-primary mt-2"><i class="bi bi-hourglass-split"></i> Загрузка…</div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-light d-flex justify-content-end gap-2 flex-wrap">
+            <a href="/incidents" class="btn btn-outline-secondary me-auto">К списку</a>
+            <button type="button" class="btn btn-primary"
+                    :disabled="saving || closing || selectedPositions.length === 0"
+                    @click="submitUpdate()">
+                <span x-show="!saving && !closing"><i class="bi bi-check-lg"></i> Сохранить</span>
+                <span x-show="saving && !closing"><span class="spinner-border spinner-border-sm me-1"></span>Сохранение…</span>
+            </button>
+            <button type="button" class="btn btn-success"
+                    x-show="!isClosed"
+                    :disabled="saving || closing || selectedPositions.length === 0"
+                    @click="submitClose()">
+                <span x-show="!closing"><i class="bi bi-check2-all"></i> Закрыть аварию</span>
+                <span x-show="closing"><span class="spinner-border spinner-border-sm me-1"></span>Закрытие…</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function incidentEditApp(incidentId) {
+        const emptyEditForm = () => ({
+            incidentNumber: '',
+            incidentNumberUrl: '',
+            equipmentType: '',
+            incidentTypeId: '',
+            incidentCategoryId: '',
+            networkTypeId: '',
+            positionLevel: '',
+            startedAtLocal: '',
+            endedAtLocal: '',
+            baseStationsCount: '',
+            akbDuration: '00:00',
+            guDuration: '00:00',
+            connectionDowntime: '00:00',
+            bsTotalDowntime: '00:00',
+            notificationText: '',
+            description: ''
+        });
+
+        return {
+            incidentId,
+            loading: true,
+            loaded: false,
+            loadError: null,
+            saving: false,
+            closing: false,
+            isClosed: false,
+            editForm: emptyEditForm(),
+            incidentTypes: [],
+            incidentCategories: [],
+            networkTypes: [],
+            positionSearchQuery: '',
+            positionSuggestions: [],
+            positionSuggestOpen: false,
+            positionSearchLoading: false,
+            editIncidentTypeQuery: '',
+            editIncidentCategoryQuery: '',
+            editIncidentTypeOpen: false,
+            editIncidentCategoryOpen: false,
+            filteredEditIncidentTypes: [],
+            filteredEditIncidentCategories: [],
+            selectedPositions: [],
+            autoLocks: { bs: false },
+
+            get defaultBsCount() {
+                if (!this.selectedPositions.length) return 0;
+                return this.selectedPositions.reduce((s, p) => s + (p.baseStationsCount || 0), 0);
+            },
+
+            async init() {
+                await this.loadDictionaries();
+                await this.loadIncident();
+            },
+
+            async loadDictionaries() {
+                try {
+                    const [tRes, cRes, ntRes] = await Promise.all([
+                        fetch('/api/dictionaries/incident-types', { credentials: 'same-origin' }),
+                        fetch('/api/dictionaries/incident-categories', { credentials: 'same-origin' }),
+                        fetch('/api/dictionaries/network-types', { credentials: 'same-origin' })
+                    ]);
+                    if (tRes.ok) this.incidentTypes = await tRes.json();
+                    if (cRes.ok) this.incidentCategories = await cRes.json();
+                    if (ntRes.ok) this.networkTypes = await ntRes.json();
+                } catch (e) {
+                    console.error(e);
+                    showToast('Не удалось загрузить справочники', 'error');
+                }
+            },
+
+            toDatetimeLocal(iso) {
+                if (iso == null || iso === '') return '';
+                let d;
+                if (Array.isArray(iso) && iso.length >= 3) {
+                    const y = iso[0], mo = iso[1], day = iso[2], h = iso[3] ?? 0, mi = iso[4] ?? 0, s = iso[5] ?? 0;
+                    d = new Date(y, mo - 1, day, h, mi, s);
+                } else {
+                    d = new Date(iso);
+                }
+                if (isNaN(d.getTime())) return '';
+                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                return d.toISOString().slice(0, 16);
+            },
+
+            nowLocalDatetime16() {
+                const now = new Date();
+                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+                return now.toISOString().slice(0, 16);
+            },
+
+            hhOrDefault00(s) {
+                const t = s != null ? String(s).trim() : '';
+                return t ? t : '00:00';
+            },
+
+            async loadIncident() {
+                this.loading = true;
+                this.loadError = null;
+                this.loaded = false;
+                try {
+                    const res = await fetch('/api/incidents/' + this.incidentId, { credentials: 'same-origin' });
+                    if (res.status === 403) {
+                        this.loadError = 'Нет доступа к этой аварии.';
+                        return;
+                    }
+                    if (!res.ok) {
+                        this.loadError = 'Авария не найдена.';
+                        return;
+                    }
+                    const data = await res.json();
+                    this.isClosed = data.status === 'CLOSED';
+
+                    let posIds = [];
+                    if (Array.isArray(data.positionIds)) {
+                        posIds = data.positionIds;
+                    } else if (data.positionIds && typeof data.positionIds === 'object') {
+                        posIds = Object.values(data.positionIds);
+                    }
+
+                    this.editForm = {
+                        incidentNumber: data.incidentNumber || '',
+                        incidentNumberUrl: data.incidentNumberUrl || '',
+                        equipmentType: data.equipmentType || '',
+                        incidentTypeId: data.incidentType && data.incidentType.id != null ? String(data.incidentType.id) : '',
+                        incidentCategoryId: data.incidentCategory && data.incidentCategory.id != null ? String(data.incidentCategory.id) : '',
+                        networkTypeId: data.networkTypeId != null ? String(data.networkTypeId) : '',
+                        positionLevel: data.positionLevel != null ? String(data.positionLevel) : '',
+                        startedAtLocal: this.toDatetimeLocal(data.startedAt),
+                        endedAtLocal: this.toDatetimeLocal(data.endedAt) || this.nowLocalDatetime16(),
+                        baseStationsCount: data.baseStationsCount || '',
+                        akbDuration: this.hhOrDefault00(data.akbDuration),
+                        guDuration: this.hhOrDefault00(data.guDuration),
+                        connectionDowntime: this.hhOrDefault00(data.connectionDowntime),
+                        bsTotalDowntime: this.hhOrDefault00(data.bsTotalDowntime),
+                        notificationText: data.notificationText || '',
+                        description: data.description || ''
+                    };
+
+                    this.autoLocks = {
+                        bs: !!(data.baseStationsCount && String(data.baseStationsCount).trim())
+                    };
+
+                    this.selectedPositions = [];
+                    for (const pid of posIds) {
+                        try {
+                            const dRes = await fetch('/api/dictionaries/positions/' + pid + '/detail', { credentials: 'same-origin' });
+                            if (dRes.ok) {
+                                const detail = await dRes.json();
+                                detail._loading = false;
+                                this.selectedPositions.push(detail);
+                            }
+                        } catch (_) { /* пропускаем удалённую позицию */ }
+                    }
+
+                    this.syncEditDictionaryQueries();
+                    this.filterEditIncidentType();
+                    this.filterEditIncidentCategory();
+
+                    this.loaded = true;
+                    this.syncDerivedFromPositions();
+                } catch (e) {
+                    console.error(e);
+                    this.loadError = 'Ошибка сети при загрузке аварии.';
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            syncEditDictionaryQueries() {
+                const tid = this.editForm.incidentTypeId;
+                if (tid) {
+                    const t = this.incidentTypes.find(x => String(x.id) === String(tid));
+                    this.editIncidentTypeQuery = t ? (t.typeCode || '') : '';
+                } else {
+                    this.editIncidentTypeQuery = '';
+                }
+                const cid = this.editForm.incidentCategoryId;
+                if (cid) {
+                    const c = this.incidentCategories.find(x => String(x.id) === String(cid));
+                    this.editIncidentCategoryQuery = c ? (c.categoryName || '') : '';
+                } else {
+                    this.editIncidentCategoryQuery = '';
+                }
+            },
+
+            scheduleCloseEditIncidentType() {
+                setTimeout(() => { this.editIncidentTypeOpen = false; }, 200);
+            },
+            scheduleCloseEditIncidentCategory() {
+                setTimeout(() => { this.editIncidentCategoryOpen = false; }, 200);
+            },
+            filterEditIncidentType() {
+                const q = (this.editIncidentTypeQuery || '').trim().toLowerCase();
+                const all = this.incidentTypes || [];
+                this.filteredEditIncidentTypes = !q
+                    ? all.slice()
+                    : all.filter(t => (t.typeCode || '').toLowerCase().includes(q));
+            },
+            filterEditIncidentCategory() {
+                const q = (this.editIncidentCategoryQuery || '').trim().toLowerCase();
+                const all = this.incidentCategories || [];
+                this.filteredEditIncidentCategories = !q
+                    ? all.slice()
+                    : all.filter(c => {
+                        const name = (c.categoryName || '').toLowerCase();
+                        const desc = (c.description || '').toLowerCase();
+                        return name.includes(q) || desc.includes(q);
+                    });
+            },
+            onEditIncidentTypeFocus() {
+                this.filterEditIncidentType();
+                this.editIncidentTypeOpen = true;
+            },
+            onEditIncidentTypeInput() {
+                const tid = this.editForm.incidentTypeId;
+                if (tid) {
+                    const t = this.incidentTypes.find(x => String(x.id) === String(tid));
+                    const label = t ? String(t.typeCode || '').trim() : '';
+                    if (String(this.editIncidentTypeQuery || '').trim() !== label) {
+                        this.editForm.incidentTypeId = '';
+                    }
+                }
+                this.filterEditIncidentType();
+                this.editIncidentTypeOpen = true;
+            },
+            onEditIncidentCategoryFocus() {
+                this.filterEditIncidentCategory();
+                this.editIncidentCategoryOpen = true;
+            },
+            onEditIncidentCategoryInput() {
+                const cid = this.editForm.incidentCategoryId;
+                if (cid) {
+                    const c = this.incidentCategories.find(x => String(x.id) === String(cid));
+                    const label = c ? String(c.categoryName || '').trim() : '';
+                    if (String(this.editIncidentCategoryQuery || '').trim() !== label) {
+                        this.editForm.incidentCategoryId = '';
+                    }
+                }
+                this.filterEditIncidentCategory();
+                this.editIncidentCategoryOpen = true;
+            },
+            selectEditIncidentType(t) {
+                this.editForm.incidentTypeId = String(t.id);
+                this.editIncidentTypeQuery = t.typeCode || '';
+                this.editIncidentTypeOpen = false;
+            },
+            selectEditIncidentCategory(c) {
+                this.editForm.incidentCategoryId = String(c.id);
+                this.editIncidentCategoryQuery = c.categoryName || '';
+                this.editIncidentCategoryOpen = false;
+            },
+
+            touchBsAutoLock() {
+                this.autoLocks.bs = !!(this.editForm.baseStationsCount && String(this.editForm.baseStationsCount).trim());
+            },
+
+            syncDerivedFromPositions() {
+                const loaded = this.selectedPositions.filter(p => !p._loading);
+                if (!loaded.length) {
+                    if (!this.autoLocks.bs) this.editForm.baseStationsCount = '';
+                    return;
+                }
+                if (!this.autoLocks.bs) {
+                    const sum = loaded.reduce((s, p) => s + (p.baseStationsCount || 0), 0);
+                    this.editForm.baseStationsCount = String(sum > 0 ? sum : loaded.length);
+                }
+            },
+
+            async runPositionSearch() {
+                this.positionSearchLoading = true;
+                this.positionSuggestOpen = true;
+                try {
+                    const q = (this.positionSearchQuery || '').trim();
+                    const url = '/api/dictionaries/positions/search?q=' + encodeURIComponent(q) + '&limit=40';
+                    const res = await fetch(url, { credentials: 'same-origin' });
+                    if (res.ok) this.positionSuggestions = await res.json();
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    this.positionSearchLoading = false;
+                }
+            },
+
+            async addPositionById(id) {
+                if (this.selectedPositions.some(p => p.id === id)) {
+                    showToast('Позиция уже добавлена', 'warning');
+                    this.positionSuggestOpen = false;
+                    return;
+                }
+                const placeholder = { id, _loading: true, positionNameforbs: '…', baseStationsCount: 0, baseStationLabels: [] };
+                this.selectedPositions.push(placeholder);
+                this.positionSuggestOpen = false;
+                try {
+                    const res = await fetch('/api/dictionaries/positions/' + id + '/detail', { credentials: 'same-origin' });
+                    if (!res.ok) {
+                        this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                        showToast('Не удалось загрузить позицию', 'error');
+                        return;
+                    }
+                    const detail = await res.json();
+                    detail._loading = false;
+                    const idx = this.selectedPositions.findIndex(p => p.id === id);
+                    if (idx >= 0) this.selectedPositions[idx] = detail;
+                    this.syncDerivedFromPositions();
+                } catch (e) {
+                    console.error(e);
+                    this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                    showToast('Ошибка сети', 'error');
+                }
+            },
+
+            removeSelectedPosition(id) {
+                this.selectedPositions = this.selectedPositions.filter(p => p.id !== id);
+                this.syncDerivedFromPositions();
+            },
+
+            normalizeLocalDateTime(localStr) {
+                if (!localStr) return null;
+                const s = localStr.trim();
+                if (s.length === 16) return s + ':00';
+                return s;
+            },
+
+            blurNormalizeHHMM(s) {
+                let t = (s || '').trim();
+                if (!t) return '';
+                if (/^\d{1,3}:[0-5]\d$/.test(t)) return t;
+                if (/^\d{1,3}$/.test(t)) return t + ':00';
+                const d = t.replace(/\D/g, '');
+                if (!d) return '';
+                if (d.length <= 2) return d;
+                const mm = Math.min(59, parseInt(d.slice(-2), 10));
+                const hh = d.slice(0, -2) || '0';
+                return hh + ':' + String(mm).padStart(2, '0');
+            },
+
+            hhmmFieldError(s) {
+                const t = (s || '').trim();
+                if (!t) return null;
+                return /^\d{1,3}:[0-5]\d$/.test(t)
+                    ? null
+                    : 'укажите в формате ЧЧ:ММ (напр. 02:30)';
+            },
+
+            async submitUpdate() {
+                if (!this.validateFormForSave()) return;
+
+                const startedAt = this.normalizeLocalDateTime(this.editForm.startedAtLocal);
+                if (!startedAt) {
+                    showToast('Некорректная дата начала', 'error');
+                    return;
+                }
+
+                const body = this.buildUpdateBody(startedAt);
+
+                this.saving = true;
+                try {
+                    const response = await fetch('/api/incidents/' + this.incidentId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(body)
+                    });
+                    if (response.ok) {
+                        showToast('Изменения сохранены', 'success');
+                        window.location.href = '/incidents';
+                    } else {
+                        let msg = 'Не удалось сохранить';
+                        try {
+                            const err = await response.json();
+                            if (err.message) msg = err.message;
+                        } catch (_) {}
+                        if (response.status === 401) msg = 'Требуется вход';
+                        if (response.status === 403) msg = 'Нет доступа';
+                        showToast(msg, 'error');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast('Ошибка сети', 'error');
+                } finally {
+                    this.saving = false;
+                }
+            },
+
+            buildUpdateBody(startedAt) {
+                let bs = (this.editForm.baseStationsCount || '').trim();
+                if (!bs) {
+                    bs = String(this.defaultBsCount || this.selectedPositions.length);
+                }
+                const pl = this.editForm.positionLevel;
+                const positionLevel = (pl === '' || pl === null || pl === undefined) ? null : Number(pl);
+                const endNorm = this.normalizeLocalDateTime(this.editForm.endedAtLocal);
+                const body = {
+                    incidentNumber: this.editForm.incidentNumber?.trim() || null,
+                    incidentNumberUrl: this.editForm.incidentNumberUrl?.trim() || null,
+                    equipmentType: (this.editForm.equipmentType || '').trim(),
+                    incidentTypeId: Number(this.editForm.incidentTypeId),
+                    incidentCategoryId: Number(this.editForm.incidentCategoryId),
+                    networkTypeId: Number(this.editForm.networkTypeId),
+                    positionLevel,
+                    positionIds: this.selectedPositions.map(p => p.id),
+                    baseStationsCount: bs,
+                    startedAt: startedAt,
+                    akbDuration: this.editForm.akbDuration?.trim() || null,
+                    guDuration: this.editForm.guDuration?.trim() || null,
+                    connectionDowntime: this.editForm.connectionDowntime?.trim() || null,
+                    bsTotalDowntime: this.editForm.bsTotalDowntime?.trim() || null,
+                    notificationText: this.editForm.notificationText?.trim() || null,
+                    description: this.editForm.description?.trim() || null
+                };
+                if (endNorm) {
+                    body.endedAt = endNorm;
+                }
+                return body;
+            },
+
+            validateFormForSave() {
+                if (!this.editForm.incidentTypeId || !this.editForm.incidentCategoryId) {
+                    showToast('Выберите «Тип аварии» и «Категорию аварии»', 'warning');
+                    return false;
+                }
+                if (!this.editForm.networkTypeId) {
+                    showToast('Выберите «Тип сети»', 'warning');
+                    return false;
+                }
+                if (this.editForm.positionLevel === '' || this.editForm.positionLevel === null || this.editForm.positionLevel === undefined) {
+                    showToast('Укажите «Категорию» (уровень 0–3)', 'warning');
+                    return false;
+                }
+                if (!this.editForm.startedAtLocal) {
+                    showToast('Укажите «Начало» (дату и время)', 'warning');
+                    return false;
+                }
+                if (this.selectedPositions.some(p => p._loading)) {
+                    showToast('Дождитесь загрузки данных по позициям', 'warning');
+                    return false;
+                }
+                if (this.selectedPositions.length === 0) {
+                    showToast('Выберите «Сетевой элемент, услуга» — хотя бы одну позицию', 'warning');
+                    return false;
+                }
+                const akbErr = this.hhmmFieldError(this.editForm.akbDuration);
+                if (akbErr) {
+                    showToast('АКБ: ' + akbErr, 'warning');
+                    return false;
+                }
+                const guErr = this.hhmmFieldError(this.editForm.guDuration);
+                if (guErr) {
+                    showToast('ГУ: ' + guErr, 'warning');
+                    return false;
+                }
+                const connErr = this.hhmmFieldError(this.editForm.connectionDowntime);
+                if (connErr) {
+                    showToast('Время перерыва связи: ' + connErr, 'warning');
+                    return false;
+                }
+                const bsTotErr = this.hhmmFieldError(this.editForm.bsTotalDowntime);
+                if (bsTotErr) {
+                    showToast('Общее время простоя БС: ' + bsTotErr, 'warning');
+                    return false;
+                }
+                return true;
+            },
+
+            async submitClose() {
+                if (!this.validateFormForSave()) return;
+
+                const startedAt = this.normalizeLocalDateTime(this.editForm.startedAtLocal);
+                if (!startedAt) {
+                    showToast('Некорректная дата начала', 'error');
+                    return;
+                }
+
+                if (!this.editForm.endedAtLocal || !String(this.editForm.endedAtLocal).trim()) {
+                    showToast('Укажите «Окончание» (дату и время) для закрытия аварии', 'warning');
+                    return;
+                }
+                const endedAt = this.normalizeLocalDateTime(this.editForm.endedAtLocal);
+                if (!endedAt) {
+                    showToast('Некорректная дата окончания', 'error');
+                    return;
+                }
+                const startMs = new Date(startedAt.replace(' ', 'T')).getTime();
+                const endMs = new Date(endedAt.replace(' ', 'T')).getTime();
+                if (!isNaN(startMs) && !isNaN(endMs) && endMs < startMs) {
+                    showToast('Окончание не может быть раньше начала', 'warning');
+                    return;
+                }
+
+                if (!this.editForm.connectionDowntime || !String(this.editForm.connectionDowntime).trim()) {
+                    showToast('Укажите «Время перерыва связи» (ЧЧ:ММ) — обязательно при закрытии', 'warning');
+                    return;
+                }
+                const connCloseErr = this.hhmmFieldError(this.editForm.connectionDowntime);
+                if (connCloseErr) {
+                    showToast('Время перерыва связи: ' + connCloseErr, 'warning');
+                    return;
+                }
+                const bsCloseErr = this.hhmmFieldError(this.editForm.bsTotalDowntime);
+                if (bsCloseErr) {
+                    showToast('Общее время простоя БС: ' + bsCloseErr, 'warning');
+                    return;
+                }
+
+                if (!confirm('Закрыть аварию? Данные при необходимости можно будет снова изменить на этой странице.')) return;
+
+                const body = this.buildUpdateBody(startedAt);
+                this.closing = true;
+                try {
+                    const putRes = await fetch('/api/incidents/' + this.incidentId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(body)
+                    });
+                    if (!putRes.ok) {
+                        let msg = 'Не удалось сохранить данные перед закрытием';
+                        try {
+                            const err = await putRes.json();
+                            if (err.message) msg = err.message;
+                        } catch (_) {}
+                        if (putRes.status === 401) msg = 'Требуется вход';
+                        if (putRes.status === 403) msg = 'Нет доступа';
+                        showToast(msg, 'error');
+                        return;
+                    }
+
+                    const closeBody = {
+                        endedAt: endedAt,
+                        description: this.editForm.description?.trim() || null,
+                        akbDuration: this.editForm.akbDuration?.trim() || null,
+                        guDuration: this.editForm.guDuration?.trim() || null,
+                        connectionDowntime: this.editForm.connectionDowntime?.trim() || null,
+                        bsTotalDowntime: this.editForm.bsTotalDowntime?.trim() || null
+                    };
+                    const patchRes = await fetch('/api/incidents/' + this.incidentId + '/close', {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin',
+                        body: JSON.stringify(closeBody)
+                    });
+                    if (patchRes.ok) {
+                        showToast('Авария закрыта', 'success');
+                        window.location.href = '/incidents';
+                        return;
+                    }
+                    let msg = 'Не удалось закрыть аварию';
+                    try {
+                        const err = await patchRes.json();
+                        if (err.message) msg = err.message;
+                    } catch (_) {}
+                    if (patchRes.status === 401) msg = 'Требуется вход';
+                    if (patchRes.status === 403) msg = 'Нет доступа';
+                    showToast(msg, 'error');
+                } catch (e) {
+                    console.error(e);
+                    showToast('Ошибка сети', 'error');
+                } finally {
+                    this.closing = false;
+                }
+            }
+        };
+    }
+</script>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

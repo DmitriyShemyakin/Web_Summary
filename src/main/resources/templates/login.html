@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Вход в систему')}"></head>
+<body class="d-flex align-items-center" style="min-height: 100vh;">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-5 col-lg-4">
+                <div class="card shadow-lg">
+                    <div class="card-body p-5">
+                        <!-- Logo -->
+                        <div class="text-center mb-4">
+                            <img src="/img/5e574cefa15e3.png" alt="logo Web Summary" style="height: 4rem;">
+                            <h3 class="mt-3">Web Summary</h3>
+                            <p class="text-muted small">Система учета аварий</p>
+                        </div>
+
+                        <!-- Error Alert -->
+                        <div th:if="${param.error}" class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Неверное имя пользователя или пароль
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+
+                        <!-- Logout Success -->
+                        <div th:if="${param.logout}" class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            Вы успешно вышли из системы
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+
+                        <!-- Login Form -->
+                        <form method="post" action="/login" x-data="{ loading: false }" @submit="loading = true">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Имя пользователя:</label>
+                                <div class="input-group">
+                                    <input type="text"
+                                           class="form-control"
+                                           id="username"
+                                           name="username"
+                                           required
+                                           autofocus>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="password" class="form-label">Пароль:</label>
+                                <div class="input-group">
+                                    <input type="password"
+                                           class="form-control"
+                                           id="password"
+                                           name="password"
+                                           required>
+                                </div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit"
+                                        class="btn btn-primary btn-lg"
+                                        :disabled="loading">
+                                    <span x-show="!loading">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>Войти
+                                    </span>
+                                    <span x-show="loading">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        Вход...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
