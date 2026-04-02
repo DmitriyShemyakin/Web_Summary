@@ -30,11 +30,6 @@ public class ShiftController {
         this.userService = userService;
     }
 
-    /**
-     * Начать новую смену
-     *
-     * POST /api/shifts/start
-     */
     @PostMapping("/start")
     public ResponseEntity<ShiftDtoResponse> startShift(
             @RequestBody(required = false) StartShiftRequest request) {
@@ -49,11 +44,6 @@ public class ShiftController {
         return ResponseEntity.ok(shift);
     }
 
-    /**
-     * Завершить текущую смену
-     *
-     * POST /api/shifts/end
-     */
     @PostMapping("/end")
     public ResponseEntity<EndShiftResponse> endShift(@RequestBody(required = false) EndShiftRequest request) {
         User currentUser = userService.getCurrentUser();
@@ -66,11 +56,6 @@ public class ShiftController {
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * Получить текущую активную смену
-     *
-     * GET /api/shifts/current
-     */
     @GetMapping("/current")
     public ResponseEntity<ShiftDtoResponse> getCurrentShift() {
         User currentUser = userService.getCurrentUser();
@@ -83,11 +68,6 @@ public class ShiftController {
         return ResponseEntity.ok(shift);
     }
 
-    /**
-     * Получить смену по ID
-     *
-     * GET /api/shifts/{id}
-     */
     @GetMapping("/{id}")
     public ResponseEntity<ShiftDtoResponse> getShiftById(@PathVariable Long id) {
 
@@ -96,11 +76,6 @@ public class ShiftController {
         return ResponseEntity.ok(shift);
     }
 
-    /**
-     * Получить историю смен текущего пользователя
-     *
-     * GET /api/shifts/history
-     */
     @GetMapping("/history")
     public ResponseEntity<Page<ShiftDtoResponse>> getShiftHistory(@PageableDefault(size = 20) Pageable pageable) {
         User currentUser = userService.getCurrentUser();
@@ -109,11 +84,6 @@ public class ShiftController {
         return ResponseEntity.ok(shifts);
     }
 
-    /**
-     * Получить все смены (для админа/старшего дежурного)
-     *
-     * GET /api/shifts/all
-     */
     @GetMapping("/all")
     public ResponseEntity<Page<ShiftDtoResponse>> getAllShifts(@PageableDefault(size = 20) Pageable pageable) {
 
@@ -121,11 +91,6 @@ public class ShiftController {
         return ResponseEntity.ok(shifts);
     }
 
-    /**
-     * Получить аварии за смену
-     *
-     * GET /api/shifts/{id}/incidents
-     */
     @GetMapping("/{id}/incidents")
     public ResponseEntity<List<IncidentDtoResponse>> getShiftIncidents(@PathVariable Long id) {
         User currentUser = userService.getCurrentUser();
@@ -134,11 +99,6 @@ public class ShiftController {
         return ResponseEntity.ok(incidents);
     }
 
-    /**
-     * Скачать все аварии смены в XLSX (видимые текущему пользователю).
-     *
-     * GET /api/shifts/{id}/export.xlsx
-     */
     @GetMapping("/{id}/export.xlsx")
     public ResponseEntity<byte[]> exportShiftIncidentsXlsx(@PathVariable Long id) {
         User currentUser = userService.getCurrentUser();

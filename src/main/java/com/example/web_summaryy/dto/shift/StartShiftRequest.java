@@ -9,10 +9,6 @@ import lombok.*;
 @Builder
 public class StartShiftRequest {
 
-    /**
-     * ID направления (опционально, для дежурных БС)
-     * Если null - дежурный работает по всем направлениям
-     */
     private Long directionId;
 }
 

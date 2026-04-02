@@ -11,14 +11,8 @@ import java.util.List;
 
 public interface UserService {
 
-    /**
-     * Есть ли у пользователя роль администратора (по {@link com.example.web_summaryy.model.Role} в {@code objRole}).
-     */
     boolean hasAdministratorRole(User currentUser);
 
-    /**
-     * Видит ли пользователь все аварии без фильтра по направлениям (админ / старший / дежурный транспорта).
-     */
     boolean seesAllIncidentsByObjRoles(User user);
 
     User getCurrentUser();

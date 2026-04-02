@@ -150,10 +150,6 @@ public class ShiftServiceImpl implements ShiftService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Аварии смены: пересечение интервала «жизни» аварии с [начало, конец] смены + записи с {@code shift_id} = эта смена.
-     * Учитываются аварии, открытые в смену и закрытые уже после её окончания.
-     */
     private List<Incident> loadIncidentsForShift(Shift shift, User viewer) {
         LocalDateTime start = shift.getStartedAt();
         LocalDateTime end = shift.getEndedAt() != null ? shift.getEndedAt() : LocalDateTime.now();

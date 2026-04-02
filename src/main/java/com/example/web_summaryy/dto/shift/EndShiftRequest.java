@@ -16,9 +16,6 @@ public class EndShiftRequest {
     @Builder.Default
     private Boolean generateReport = true;
 
-    /**
-     * Комментарий к завершению смены (опционально)
-     */
     private String comment;
 }
 

@@ -61,12 +61,12 @@ public class DataInitializer implements ApplicationRunner {
     private void initAdmin() {
         Role adminRole = roleRepository.findByTitle(ADMIN_ROLE_TITLE)
                 .orElseGet(() -> {
-                    log.info("Роль '{}' не найдена — создаю", ADMIN_ROLE_TITLE);
+                    log.info("Роль '{}' не найдена, создаю", ADMIN_ROLE_TITLE);
                     return roleRepository.save(Role.builder().title(ADMIN_ROLE_TITLE).build());
                 });
 
         if (userRepository.existsByUsername(ADMIN_USERNAME)) {
-            log.info("Пользователь '{}' уже существует — пропускаю", ADMIN_USERNAME);
+            log.info("Пользователь '{}' уже существует, пропускаю", ADMIN_USERNAME);
             return;
         }
 
@@ -127,11 +127,10 @@ public class DataInitializer implements ApplicationRunner {
     }
 
     /**
-     * У каждого пользователя одна роль с тем же названием, что и должность.
+     * У каждого пользователя одна роль с тем же названием, что и title.
      */
     private void seedDutyUsersAndRoles() {
         record DutySeed(String username, String roleTitle) {}
-        /* Только дежурные/операторы; прочие типы — только в справочнике типов аварий, не отдельные учётки. */
         List<DutySeed> seeds = List.of(
                 new DutySeed("kurgan_hmyan", "Дежурный Курган/ХМЯН"),
                 new DutySeed("yuzn", "Дежурный ЮЗН"),
@@ -162,13 +161,13 @@ public class DataInitializer implements ApplicationRunner {
         }
 
         if (anyUserCreated) {
-            log.warn("Пароль для новых тестовых пользователей дежурств: {}", SEED_DUTY_USER_PASSWORD);
+            log.warn("Пароль для новых тестовых пользователей (дежурных): {}", SEED_DUTY_USER_PASSWORD);
         }
     }
 
     private void seedPositionsFromFile() {
         if (positionRepository.count() > 0) {
-            log.info("Позиции уже есть в БД ({} шт.) — пропускаю загрузку из файла", positionRepository.count());
+            log.info("Позиции уже есть в БД ({} шт.). Загрузка из файла пропущена.", positionRepository.count());
             return;
         }
 

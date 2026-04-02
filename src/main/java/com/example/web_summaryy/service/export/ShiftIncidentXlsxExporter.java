@@ -22,15 +22,12 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * Формирует XLSX со списком аварий за смену (один лист, только строки данных — без заголовков колонок).
- * Порядок столбцов совпадает с таблицей в UI (без колонки «Действия»).
+ * Формирует XLSX со списком аварий за смену
  */
 @Component
 public class ShiftIncidentXlsxExporter {
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm");
-
-    /** Число столбцов данных = порядок в incidents list / shifts incidents (без «Действия»). */
     private static final int COLUMN_COUNT = 20;
 
     public byte[] export(Shift shift, List<Incident> incidents) throws IOException {
@@ -84,7 +81,6 @@ public class ShiftIncidentXlsxExporter {
         }
     }
 
-    /** Как в UI: для OPEN — «НВ (ЧЧ:ММ)» от начала до момента выгрузки; для закрытой — длительность по началу/окончанию. */
     private static String durationCell(Incident inc, LocalDateTime exportNow) {
         if (inc.getStatus() == IncidentStatus.OPEN) {
             String live = formatDurationHHMM(inc.getStartedAt(), exportNow);
@@ -119,7 +115,6 @@ public class ShiftIncidentXlsxExporter {
         return t != null ? t.format(DT) : "";
     }
 
-    /** Как в UI: каждая позиция с новой строки в ячейке. */
     private static String positionNamesMultiline(Incident inc) {
         if (inc.getPositions() == null || inc.getPositions().isEmpty()) {
             return "";

@@ -2,9 +2,6 @@ package com.example.web_summaryy.config.seed;
 
 import java.util.List;
 
-/**
- * Категории аварий для начального заполнения БД (без дубликатов).
- */
 public final class IncidentCategorySeedData {
 
     private IncidentCategorySeedData() {

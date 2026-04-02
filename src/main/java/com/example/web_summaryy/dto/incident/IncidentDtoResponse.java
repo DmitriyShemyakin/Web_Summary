@@ -28,7 +28,6 @@ public class IncidentDtoResponse {
     private IncidentTypeDtoResponse incidentType;
     private IncidentCategoryDtoResponse incidentCategory;
 
-    /** Уровень позиции (0–3). */
     private Integer positionLevel;
 
     private Long networkTypeId;

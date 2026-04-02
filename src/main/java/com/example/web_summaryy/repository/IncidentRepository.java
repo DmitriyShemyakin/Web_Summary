@@ -12,9 +12,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Repository для работы с авариями
- */
+
 @Repository
 public interface IncidentRepository extends JpaRepository<Incident, Long> {
 

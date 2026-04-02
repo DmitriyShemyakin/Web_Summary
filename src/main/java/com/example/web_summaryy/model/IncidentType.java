@@ -18,16 +18,9 @@ public class IncidentType {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /**
-     * Код типа (короткое обозначение)
-     * Пример: "ТМ", "ЭЛ", "РРЛ", "FA-13G"
-     */
     @Column(name = "type_code", nullable = false, unique = true)
     private String typeCode;
 
-    /**
-     * Признак активности справочника
-     */
     @Builder.Default
     @Column(name = "is_active")
     private Boolean isActive = true;

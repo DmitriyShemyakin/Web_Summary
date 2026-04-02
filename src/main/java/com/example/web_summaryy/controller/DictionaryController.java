@@ -65,7 +65,6 @@ public class DictionaryController {
         return ResponseEntity.ok(dtos);
     }
 
-    /** q короче 2 символов — первые записи по алфавиту ({@link PositionLookupService}). */
     @GetMapping("/positions/search")
     public ResponseEntity<List<PositionSimpleDto>> searchPositions(
             @RequestParam(value = "q", required = false) String q,
@@ -195,8 +194,6 @@ public class DictionaryController {
         IncidentType saved = incidentTypeRepository.save(entity);
         return ResponseEntity.ok(dictionaryMapper.toIncidentTypeDto(saved));
     }
-
-    // --- Role CRUD ---
 
     @PostMapping("/roles")
     public ResponseEntity<?> createRole(@RequestBody RoleDtoRequest request) {

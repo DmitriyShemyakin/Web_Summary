@@ -5,9 +5,6 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.Set;
 
-/**
- * Частичное обновление: не-null поля из тела применяются; {@code positionLevel} всегда перезаписывается (в т.ч. null).
- */
 @Getter
 @Setter
 @NoArgsConstructor

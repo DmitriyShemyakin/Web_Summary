@@ -91,9 +91,6 @@ public class User implements UserDetails {
                 .collect(Collectors.joining(", "));
     }
 
-    // ========================================
-    // UserDetails Implementation
-    // ========================================
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

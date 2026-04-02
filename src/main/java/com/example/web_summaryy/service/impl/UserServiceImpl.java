@@ -149,9 +149,7 @@ public class UserServiceImpl implements UserService {
                 "duty_transport", "dutytransport", "дежурный_транспорта");
     }
 
-    /**
-     * Сравнение по {@code Role.title}: без учёта регистра, пробелы как в подчёркиваниях.
-     */
+
     private static String normalizeRoleTitle(String title) {
         if (title == null) {
             return "";

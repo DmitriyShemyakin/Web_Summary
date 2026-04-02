@@ -9,7 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class OwnerTeamDtoResponse {
-    @JsonProperty("id")  // В JSON приходит как "id", а не "externalId"
+    @JsonProperty("id")
     private String id;
 
     private String title;
